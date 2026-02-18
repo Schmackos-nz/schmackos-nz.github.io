@@ -199,20 +199,26 @@ function setupCP(){['hostColors','joinColors','soloColors','ttColors'].forEach(c
 function gsc(c){const s=document.querySelector('#'+c+' .color-swatch.selected');return s?s.dataset.color:COL[0]}
 
 // === LEVELS (infinite, seeded, all procedural) ===
+let cheatSeq=[];
 function lvlCfg(l){const nc=Math.min(l+1,8),laps=Math.min(3+l,12),c=[];for(let i=0;i<laps;i++)c.push(Math.min(3+Math.floor(i*(1+l*.3)),10));return{nc,laps,c}}
+function cheatCheck(num){
+  const nm=(document.getElementById('soloName').value||'').trim();
+  if(nm!=='six_seven')return;
+  cheatSeq.push(num);if(cheatSeq.length>2)cheatSeq=cheatSeq.slice(-2);
+  if(cheatSeq[0]===6&&cheatSeq[1]===7){MLV=1000;saveProgress();cheatSeq=[];buildLvls();showLA('🔓 LEVEL 1000 UNLOCKED')}
+}
 function buildLvls(){
-  const g=document.getElementById('levelGrid');g.innerHTML='';
+  const g=document.getElementById('levelGrid');g.innerHTML='';cheatSeq=[];
   const prog=document.getElementById('levelProgress');
   if(MLV>0)prog.textContent='✓ '+MLV+' level'+(MLV>1?'s':'')+' completed — Continue from Level '+(MLV+1);
   else prog.textContent='Start your journey!';
   const show=Math.max(8,MLV+2);
   for(let i=0;i<show;i++){
     const b=document.createElement('button');b.className='level-btn';b.textContent=i+1;
-    if(i<MLV){b.classList.add('completed','unlocked');b.onclick=()=>selLvl(i)}
-    else if(i===MLV){b.classList.add('unlocked');b.onclick=()=>selLvl(i)}
+    if(i<MLV){b.classList.add('completed','unlocked');b.onclick=(()=>{const li=i;return()=>{cheatCheck(li+1);selLvl(li)}})()}
+    else if(i===MLV){b.classList.add('unlocked');b.onclick=(()=>{const li=i;return()=>{cheatCheck(li+1);selLvl(li)}})()}
     g.appendChild(b);
   }
-  // Add "..." infinity indicator
   const dot=document.createElement('button');dot.className='level-btn';dot.textContent='∞';dot.style.cssText='color:#555;font-size:22px;cursor:default;border-style:dashed';dot.title='Infinite levels!';g.appendChild(dot);
   selLvl(MLV);
 }
@@ -274,7 +280,7 @@ function setupMC(){const m={btnLeft:'l',btnRight:'r',btnGas:'g',btnBrake:'b',btn
 function inp(){return{l:K.ArrowLeft||K.KeyA||TS2.l,r:K.ArrowRight||K.KeyD||TS2.r,g:K.ArrowUp||K.KeyW||TS2.g,b:K.ArrowDown||K.KeyS||TS2.b,n:K.ShiftLeft||K.ShiftRight||TS2.n}}
 
 // === PHYSICS ===
-const PH={ms:.75,ac:.012,br:.025,fr:.01,ts:.032,of:.03,ns:1.4,nd:100/(1.5*60),rv:.15};
+const PH={ms:.75,ac:.012,br:.025,fr:.01,ts:.032,of:.03,ns:1.4,nd:100/(1.5*60),rv:.6};
 
 function updLP(p){
   if(p.finished||GS!=='racing')return;const i=inp();
@@ -283,7 +289,7 @@ function updLP(p){
   if(p.nosOn){p.nos=Math.max(0,p.nos-PH.nd);if(p.nos<=0)p.nosOn=false;NLT--;if(NLT<=0){snd('nosl');NLT=4}}
   const ms=p.nosOn?PH.ns:PH.ms;
   if(i.g){if(p.speed<0)p.speed=Math.min(p.speed+PH.br*1.5,0);else p.speed=Math.min(p.speed+PH.ac*(p.nosOn?2.5:1),ms)}
-  else if(i.b){if(p.speed>.01)p.speed=Math.max(p.speed-PH.br,0);else p.speed=Math.max(p.speed-PH.ac*.3,-PH.rv)}
+  else if(i.b){if(p.speed>.01)p.speed=Math.max(p.speed-PH.br,0);else p.speed=Math.max(p.speed-PH.ac*.8,-PH.rv)}
   else{if(Math.abs(p.speed)<.005)p.speed=0;else p.speed*=(1-PH.fr)}
   moveP(p);tickEng(p.speed);
   if(GM==='friend')bm('upd',{x:p.x,y:p.y,angle:p.angle,speed:p.speed,progress:p.progress,lap:p.lap,coins:p.coins,finished:p.finished,nosOn:p.nosOn})
@@ -384,7 +390,7 @@ function hideG(){document.getElementById('hud').classList.add('hidden');document
 function backToMenu(){GS='menu';document.getElementById('results').classList.add('hidden');hideG();document.getElementById('roomInfo').style.display='none';document.getElementById('joinInfo').style.display='none';if(CH){CH.close();CH=null}PS={};showScreen('menuScreen')}
 
 // === RENDER ===
-function resize(){SW=innerWidth;SH=innerHeight;cv.width=SW;cv.height=SH;const p=80;TS=Math.min(SW-p*2,SH-p*2);TX=(SW-TS)/2;TY=(SH-TS)/2}
+function resize(){SW=innerWidth;SH=innerHeight;cv.width=SW;cv.height=SH;const p=isMob()?20:80;TS=Math.min(SW-p*2,SH-p*2);TX=(SW-TS)/2;TY=(SH-TS)/2}
 function toS(x,y){return{x:TX+x*TS,y:TY+y*TS}}
 function shade(c,a){let r=parseInt(c.slice(1,3),16)+a,g=parseInt(c.slice(3,5),16)+a,b=parseInt(c.slice(5,7),16)+a;return'rgb('+Math.max(0,Math.min(255,r))+','+Math.max(0,Math.min(255,g))+','+Math.max(0,Math.min(255,b))+')'}
 
@@ -490,10 +496,23 @@ function updCam(){if(!LP)return;const t=toS(LP.x,LP.y);camX+=(SW/2-t.x-camX)*.08
 function gameLoop(){
   requestAnimationFrame(gameLoop);
   if(GS==='menu'||GS==='lobby'){resize();cx.fillStyle='#0a0a0f';cx.fillRect(0,0,SW,SH);cx.globalAlpha=.15;drawTrack();cx.globalAlpha=1;return}
-  resize();updLP(LP);if(GM==='solo'||GM==='tt')Object.values(PS).forEach(p=>{if(p.isNpc)updNPC(p)});updCam();
+  resize();
+  if(GS==='racing'){updLP(LP);if(GM==='solo'||GM==='tt')Object.values(PS).forEach(p=>{if(p.isNpc)updNPC(p)})}
+  updCam();
   cx.fillStyle='#0a0a0f';cx.fillRect(0,0,SW,SH);cx.save();cx.translate(camX,camY);
   drawTerrain();
-  drawTrack();drawCoins();Object.values(PS).forEach(p=>{if(p.id!==LP.id)drawCar(p)});drawCar(LP);cx.restore();updHUD();drawMM();
+  drawTrack();drawCoins();Object.values(PS).forEach(p=>{if(p.id!==LP.id)drawCar(p)});drawCar(LP);
+  // Direction arrow during countdown
+  if(GS==='countdown'&&LP){
+    const sp=toS(LP.x,LP.y);const ax2=LP.angle;
+    const al=35,pls=1+Math.sin(performance.now()*.005)*.15;
+    cx.save();cx.translate(sp.x,sp.y);cx.rotate(ax2);cx.scale(pls,pls);
+    cx.beginPath();cx.moveTo(al+10,0);cx.lineTo(al-6,-8);cx.lineTo(al-2,0);cx.lineTo(al-6,8);cx.closePath();
+    cx.fillStyle='rgba(255,255,255,.7)';cx.fill();
+    cx.strokeStyle='rgba(255,107,53,.8)';cx.lineWidth=2;cx.stroke();
+    cx.restore();
+  }
+  cx.restore();updHUD();drawMM();
 }
 
 function init(){resize();setTrack(BATH);setupCP();setupMC();loadProgress();buildLvls();window.addEventListener('resize',resize);gameLoop()}
