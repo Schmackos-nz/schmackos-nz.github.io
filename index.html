@@ -601,6 +601,30 @@ function updPolice(){
     // (NPCs get police spawned on hit, this just ensures persistence)
   }
 }
+let infSpecTimer=0,infSpecAggro=0; // aggro increases with laps
+function spawnInfSpectator(){
+  if(GM!=='infinite'||GS!=='racing')return;
+  const now=performance.now();
+  if(now-infSpecTimer<2000)return; // every 2 seconds
+  const alive=spectators.filter(s=>s.alive).length;
+  if(alive>=200)return;
+  infSpecTimer=now;
+  const pr=Math.random();const pt=gtp(pr);const a=gta(pr);
+  const side=Math.random()>.5?1:-1;
+  const baseOff=Math.max(TW*.5,TW*(.8-infSpecAggro*.01));
+  const offDist=(baseOff+Math.random()*15)/TS;
+  const cols=['#ff6','#6ff','#f6f','#6f6','#fa0','#fff','#f66'];
+  const sx=pt.x+Math.cos(a+Math.PI/2)*side*offDist;
+  const sy=pt.y+Math.sin(a+Math.PI/2)*side*offDist;
+  // Higher aggro = faster, wider roam, more taunting
+  const spdMult=1+infSpecAggro*.05;
+  const rangeMult=1+infSpecAggro*.03;
+  spectators.push({x:sx,y:sy,homeX:sx,homeY:sy,
+    color:cols[Math.floor(Math.random()*cols.length)],alive:true,
+    wAngle:Math.random()*Math.PI*2,wTimer:Math.random()*200,
+    wSpd:(.000015+Math.random()*.00002)*spdMult,
+    homeRange:.025*rangeMult,taunting:false,tauntTimer:0});
+}
 function drawSpectators(){
   const t=performance.now();
   // Update wandering
@@ -608,8 +632,9 @@ function drawSpectators(){
     if(!s.alive)return;
     s.wTimer--;
     if(s.wTimer<=0){s.wAngle+=((Math.random()-.5)*1.5);s.wTimer=60+Math.random()*120}
-    // Level 100+: sometimes walk to road center and taunt
-    if(CLV>=100&&!s.taunting&&Math.random()<.0005){
+    // Level 100+ or infinite aggro: sometimes walk to road center and taunt
+    const tauntChance=GM==='infinite'?.0002+infSpecAggro*.0001:(CLV>=100?.0005:0);
+    if(tauntChance>0&&!s.taunting&&Math.random()<tauntChance){
       s.taunting=true;s.tauntTimer=300+Math.random()*300; // sit for 5-10 seconds
       // Walk toward nearest track center
       const tpr=ctp(s.x,s.y);const ttp=gtp(tpr);
@@ -626,7 +651,9 @@ function drawSpectators(){
     s.x+=Math.cos(s.wAngle)*s.wSpd;
     s.y+=Math.sin(s.wAngle)*s.wSpd;
     // Road check
-    const roadCheckChance=CLV<50?1:Math.max(0,1-((CLV-50)/50));
+    // Road check — weaker in infinite as aggro grows
+    let roadCheckChance=CLV<50?1:Math.max(0,1-((CLV-50)/50));
+    if(GM==='infinite')roadCheckChance=Math.max(0,1-infSpecAggro*.08);
     const pr=ctp(s.x,s.y);const tp=gtp(pr);
     const dTrack=dst({x:s.x,y:s.y},tp);
     const minDist=(TW*.52)/TS;
@@ -1296,8 +1323,8 @@ function getInfMods(){
 }
 function startInfinite(cont){
   ea();GM='infinite';
-  if(cont&&infRun){/* continue existing */}
-  else{infRun={lap:0,seed:Math.floor(Math.random()*99999),buffs:[],mods:{}};}
+  if(cont&&infRun){infSpecAggro=infRun.lap;}
+  else{infRun={lap:0,seed:Math.floor(Math.random()*99999),buffs:[],mods:{}};infSpecAggro=0;}
   const nm=document.getElementById('infName').value.trim()||'Player';
   const col=gsc('infColors');
   const cfg=lvlCfg(10+infRun.lap*5); // scales like level progression
@@ -1372,8 +1399,8 @@ function pickInfBuff(idx){
   // Apply enemy speed boost to all current NPCs
   const boostMult=1+eSpdBoost/100;
   Object.values(PS).forEach(p=>{if(p.isNpc)p.nSpd=Math.min(p.nSpd*boostMult,PH.ms*2.5)});
-  infRun.lap++;
-  document.getElementById('infOverlay').classList.add('hidden');
+  // Increase spectator aggro
+  infSpecAggro++;
   // Handle +1 Car buff
   if(choice.posK==='addCar'){
     const npcCount=Object.values(PS).filter(p=>p.isNpc).length;
@@ -1428,6 +1455,7 @@ function pickInfHeal(){
   // Apply enemy speed boost
   const boostMult=1+infHealSpdBoost/100;
   Object.values(PS).forEach(p=>{if(p.isNpc)p.nSpd=Math.min(p.nSpd*boostMult,PH.ms*2.5)});
+  infSpecAggro++;
   // Spawn +1 car
   const npcCount=Object.values(PS).filter(p=>p.isNpc).length;
   const ni=npcCount;
@@ -1796,7 +1824,7 @@ function gameLoop(){
     }else{isReplaying=false;showRes()}
   }else{
     if(GS==='racing'){
-      checkRespawns();updGunHeat();updBullets();regenAINos();spawnObstacles();checkSpectatorHits();updPolice();
+      checkRespawns();updGunHeat();updBullets();regenAINos();spawnObstacles();spawnInfSpectator();checkSpectatorHits();updPolice();
       // Infinite HP regen
       if(GM==='infinite'&&LP&&!LP.dead&&LP._im&&LP._im.hpRegen>0){const maxHp5=100+(LP._im.hpBonus||0);LP.hp=Math.min(maxHp5,LP.hp+LP._im.hpRegen/60)}
       updLP(LP);if(GM==='solo'||GM==='tt'||GM==='infinite')Object.values(PS).forEach(p=>{if(p.isNpc)updNPC(p)});
