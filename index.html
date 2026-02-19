@@ -68,7 +68,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0a0a0f;color:#fff;f
 .results-title{font-family:'Orbitron',sans-serif;font-size:clamp(24px,5vw,48px);font-weight:900;margin-bottom:24px;background:linear-gradient(135deg,#ffd700,#ff6b35);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
 .results-row{font-family:'Rajdhani',sans-serif;font-size:clamp(16px,3vw,24px);padding:6px 0;color:#ccc}.results-row .pos{color:#ffd700;font-weight:700;margin-right:12px}.results-row .time{color:#0ff;margin-left:12px}
 .results-sub{font-family:'Orbitron',sans-serif;font-size:14px;margin-top:12px}
-.minimap{position:absolute;bottom:100px;right:12px;z-index:10;pointer-events:none}@media(max-width:600px){.minimap{bottom:12px;right:50%;transform:translateX(50%);opacity:.7}}
+.minimap{position:absolute;bottom:100px;right:12px;z-index:10;pointer-events:none}@media(max-width:600px){.minimap{bottom:auto;top:12px;right:12px;transform:none;opacity:.7}}
 .tt-timer{position:absolute;top:60px;left:50%;transform:translateX(-50%);font-family:'Orbitron',sans-serif;font-size:clamp(16px,3vw,28px);font-weight:700;z-index:10;pointer-events:none;text-align:center}
 .tt-timer .tt-cur{color:#fff}.tt-timer .tt-tgt{color:#888;font-size:.7em}.tt-timer.ahead .tt-cur{color:#22cc55}.tt-timer.behind .tt-cur{color:#ff4444}
 .tt-best{color:#ffd700;font-size:.65em;margin-top:2px}
@@ -82,7 +82,16 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0a0a0f;color:#fff;f
 <button class="menu-btn primary" onclick="showScreen('createScreen')">Vs Friend</button>
 <button class="menu-btn secondary" onclick="showScreen('joinScreen')">Join Room</button>
 <button class="menu-btn secondary" onclick="showScreen('settingsScreen')" style="margin-top:12px;border-color:rgba(255,255,255,.2);color:rgba(255,255,255,.6)">⚙ Settings</button>
-<div style="position:absolute;bottom:12px;font-family:Rajdhani;font-size:11px;color:rgba(255,255,255,.2);letter-spacing:1px">v0.1.6</div></div>
+<button class="menu-btn secondary" onclick="document.getElementById('helpBox').style.display=document.getElementById('helpBox').style.display==='block'?'none':'block'" style="border-color:rgba(255,255,255,.15);color:rgba(255,255,255,.4);padding:8px 20px;font-size:12px">? Help</button>
+<div id="helpBox" style="display:none;max-width:350px;text-align:left;font-family:Rajdhani;font-size:13px;color:#aaa;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:12px;margin-top:8px;line-height:1.5">
+<b style="color:#ff6b35">Let's Play</b> - Race through levels against AI opponents. Collect coins to advance laps. Earn stars by finishing close to the winner.<br>
+<b style="color:#ff6b35">Time Trial</b> - Solo run on seeded tracks. Beat your own best times. No opponents, just you and the clock.<br>
+<b style="color:#ff6b35">Infinite</b> - Survive as long as you can. Death is permanent. Pick buffs each lap but enemies get faster every choice.<br>
+<b style="color:#ff6b35">Vs Friend</b> - Race against friends in the same browser using room codes.<br><br>
+<b style="color:#f55">Warning:</b> Hitting trackside spectators will attract police. Getting arrested locks your car for several seconds based on your wanted level. Avoid spectators!<br><br>
+<span style="color:#888">Controls: Arrow keys/WASD to drive. Space to shoot. Shift for NOS boost.</span>
+</div>
+<div style="position:absolute;bottom:12px;font-family:Rajdhani;font-size:11px;color:rgba(255,255,255,.2);letter-spacing:1px">v0.2.1</div></div>
 
 <div class="screen hidden" id="settingsScreen"><button class="back-btn" onclick="showScreen('menuScreen')">← BACK</button>
 <div class="logo" style="font-size:clamp(20px,4vw,36px)">Settings</div>
@@ -141,8 +150,8 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0a0a0f;color:#fff;f
 <div id="joinInfo" style="display:none;text-align:center;margin-top:16px"><div class="info-text">Waiting for host...</div><div class="player-list" id="joinPlayerList"></div></div></div>
 
 <canvas id="gameCanvas"></canvas>
-<div class="hud hidden" id="hud"><div class="hud-box" id="hudLapBox"><div class="hud-label">LAP</div><div class="hud-value" id="hudLap">1/3</div></div><div class="hud-box"><div class="hud-label">COINS</div><div class="hud-coins" id="hudCoins">0/3</div></div><div class="hud-box" id="hudPosBox"><div class="hud-label">POS</div><div class="hud-value" id="hudPos">1st</div></div><div class="hud-box"><div class="hud-label">SPEED</div><div class="hud-speed" id="hudSpeed">0</div></div><button id="pauseBtn" style="background:rgba(0,0,0,.5);border:1px solid rgba(255,107,53,.4);color:#ff6b35;font-family:Orbitron;font-size:11px;padding:6px 12px;cursor:pointer;pointer-events:all" onclick="togglePause()">☰</button></div>
-<div id="pauseMenu" style="display:none;position:absolute;inset:0;z-index:200;background:rgba(0,0,0,.75);display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px"><div style="font-family:Orbitron;font-size:clamp(24px,5vw,40px);font-weight:900;color:#ff6b35;margin-bottom:16px">PAUSED</div><button class="menu-btn primary" onclick="togglePause()">Resume</button><button class="menu-btn secondary" onclick="abortRace()">Abort Race</button>
+<div class="hud hidden" id="hud"><div class="hud-box" id="hudLapBox"><div class="hud-label">LAP</div><div class="hud-value" id="hudLap">1/3</div></div><div class="hud-box"><div class="hud-label">COINS</div><div class="hud-coins" id="hudCoins">0/3</div></div><div class="hud-box" id="hudPosBox"><div class="hud-label">POS</div><div class="hud-value" id="hudPos">1st</div></div><div class="hud-box"><div class="hud-label">SPEED</div><div class="hud-speed" id="hudSpeed">0</div></div><button id="pauseBtn" style="background:rgba(0,0,0,.5);border:1px solid rgba(255,107,53,.4);color:#ff6b35;font-family:Orbitron;font-size:11px;padding:6px 12px;cursor:pointer;pointer-events:all;position:relative" onclick="togglePause()">☰</button></div>
+<div id="pauseMenu" style="display:none;position:absolute;inset:0;z-index:200;background:rgba(0,0,0,.95);display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px"><div id="pauseTitle" style="font-family:Orbitron;font-size:clamp(24px,5vw,40px);font-weight:900;color:#ff6b35;margin-bottom:16px">PAUSED</div><button class="menu-btn primary" onclick="togglePause()">Resume</button><button class="menu-btn secondary" onclick="abortRace()">Abort Race</button>
 <div style="width:220px;margin-top:16px;text-align:left">
 <label style="font-family:Rajdhani;color:#aaa;font-size:13px">🎵 Music <span id="pMusicLbl">30%</span></label>
 <input type="range" id="pMusicVol" min="0" max="100" value="30" style="width:100%;accent-color:#ff6b35" oninput="setMusicVol(this.value);document.getElementById('musicVol').value=this.value">
@@ -153,6 +162,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0a0a0f;color:#fff;f
 <button id="pAutoNosBtn" onclick="toggleAutoNos()" style="background:rgba(255,50,50,.2);border:1px solid rgba(255,50,50,.4);color:#f55;font-family:Rajdhani;font-size:13px;padding:3px 12px;border-radius:6px;cursor:pointer">OFF</button>
 </div>
 <div id="pauseInfBuffs" style="display:none;margin-top:12px;max-height:150px;overflow-y:auto"></div>
+<div id="pauseKills" style="margin-top:12px;font-family:Rajdhani;font-size:13px"></div>
 </div></div>
 <div class="nos-bar-container" id="nosBar"><div class="nos-label">NOS <span id="nosPct">50%</span></div><div class="nos-bar-bg"><div class="nos-bar-fill" id="nosFill" style="width:50%"></div></div><div class="nos-hint" id="nosHint">SHIFT</div></div>
 <div class="hud-center hidden" id="hudCenter"></div><div class="lap-alert" id="lapAlert"></div><div class="wrong-way" id="wrongWay">⚠ WRONG WAY ⚠</div>
@@ -216,29 +226,29 @@ function loadSettings(){
 function startMusic(){
   if(!ax||musicPlaying)return;musicPlaying=true;
   musicGain=ax.createGain();musicGain.gain.value=musicVol*.15;musicGain.connect(ax.destination);
-  const bpm=140,beat=60/bpm;
+  const bpm=150,beat=60/bpm;
   let beatNum=0;
 
-  // Sub bass - follows chord pattern
-  const chords=[[55,110],[65,131],[55,110],[73,147]]; // Am, C, Am, D progression
+  // Major key progression: C-G-Am-F (happy, driving feel)
+  const chords=[[131,262,330],[98,196,247],[110,220,277],[87,175,220]];
   
-  // Persistent filtered noise for hi-hat texture
-  const hatBuf=ax.createBuffer(1,ax.sampleRate*.05,ax.sampleRate);
+  // Hi-hat buffer
+  const hatBuf=ax.createBuffer(1,ax.sampleRate*.04,ax.sampleRate);
   const hatD=hatBuf.getChannelData(0);for(let i=0;i<hatD.length;i++)hatD[i]=(Math.random()*2-1);
 
-  // Bassline synth (persistent, we modulate its frequency)
-  const bassOsc=ax.createOscillator();bassOsc.type='sawtooth';bassOsc.frequency.value=55;
-  const bassF=ax.createBiquadFilter();bassF.type='lowpass';bassF.frequency.value=300;bassF.Q.value=8;
-  const bassG=ax.createGain();bassG.gain.value=.25;
+  // Bassline synth (punchy, higher)
+  const bassOsc=ax.createOscillator();bassOsc.type='square';bassOsc.frequency.value=131;
+  const bassF=ax.createBiquadFilter();bassF.type='lowpass';bassF.frequency.value=500;bassF.Q.value=5;
+  const bassG=ax.createGain();bassG.gain.value=.12;
   bassOsc.connect(bassF);bassF.connect(bassG);bassG.connect(musicGain);bassOsc.start();
 
-  // Pad layer (warm background)
-  const padNotes=[220,330,440];
+  // Bright pad layer (major chord shimmer)
+  const padNotes=[523,659,784];
   padNotes.forEach(f=>{
-    const o=ax.createOscillator();o.type='triangle';o.frequency.value=f;
-    const g=ax.createGain();g.gain.value=.04;
-    const lfo=ax.createOscillator();lfo.type='sine';lfo.frequency.value=.2;
-    const lg=ax.createGain();lg.gain.value=.02;
+    const o=ax.createOscillator();o.type='sine';o.frequency.value=f;
+    const g=ax.createGain();g.gain.value=.025;
+    const lfo=ax.createOscillator();lfo.type='sine';lfo.frequency.value=.4;
+    const lg=ax.createGain();lg.gain.value=.015;
     lfo.connect(lg);lg.connect(g.gain);lfo.start();
     o.connect(g);g.connect(musicGain);o.start();
   });
@@ -250,50 +260,57 @@ function startMusic(){
     const chord=chords[bar];
     const inBar=beatNum%4;
 
-    // Update bass frequency to follow chords
-    bassOsc.frequency.setTargetAtTime(chord[0],t,.05);
-    // Bass filter sweep on beat 1
-    if(inBar===0)bassF.frequency.setTargetAtTime(600,t,.02);
-    else bassF.frequency.setTargetAtTime(200,t,.1);
+    // Bass follows root
+    bassOsc.frequency.setTargetAtTime(chord[0],t,.03);
+    if(inBar===0)bassF.frequency.setTargetAtTime(800,t,.02);
+    else bassF.frequency.setTargetAtTime(400,t,.08);
 
-    // Kick drum on beats 1 and 3
+    // Punchy kick on 1 and 3
     if(inBar===0||inBar===2){
       const k=ax.createOscillator();k.type='sine';
-      k.frequency.setValueAtTime(150,t);k.frequency.exponentialRampToValueAtTime(35,t+.12);
-      const kg=ax.createGain();kg.gain.setValueAtTime(.2,t);kg.gain.exponentialRampToValueAtTime(.001,t+.2);
-      k.connect(kg);kg.connect(musicGain);k.start(t);k.stop(t+.25);
+      k.frequency.setValueAtTime(180,t);k.frequency.exponentialRampToValueAtTime(45,t+.1);
+      const kg=ax.createGain();kg.gain.setValueAtTime(.18,t);kg.gain.exponentialRampToValueAtTime(.001,t+.15);
+      k.connect(kg);kg.connect(musicGain);k.start(t);k.stop(t+.2);
     }
-    // Snare on beats 2 and 4
+    // Crisp snare on 2 and 4
     if(inBar===1||inBar===3){
-      const sn=ax.createBufferSource();const sb=ax.createBuffer(1,Math.floor(ax.sampleRate*.08),ax.sampleRate);
+      const sn=ax.createBufferSource();const sb=ax.createBuffer(1,Math.floor(ax.sampleRate*.06),ax.sampleRate);
       const sd=sb.getChannelData(0);for(let i=0;i<sd.length;i++)sd[i]=(Math.random()*2-1);sn.buffer=sb;
-      const sf=ax.createBiquadFilter();sf.type='highpass';sf.frequency.value=2000;
-      const sg=ax.createGain();sg.gain.setValueAtTime(.1,t);sg.gain.exponentialRampToValueAtTime(.001,t+.08);
-      sn.connect(sf);sf.connect(sg);sg.connect(musicGain);sn.start(t);sn.stop(t+.1);
-      // Snare body
-      const so=ax.createOscillator();so.type='triangle';so.frequency.setValueAtTime(200,t);so.frequency.exponentialRampToValueAtTime(100,t+.05);
-      const sg2=ax.createGain();sg2.gain.setValueAtTime(.08,t);sg2.gain.exponentialRampToValueAtTime(.001,t+.06);
-      so.connect(sg2);sg2.connect(musicGain);so.start(t);so.stop(t+.08);
+      const sf=ax.createBiquadFilter();sf.type='highpass';sf.frequency.value=3000;
+      const sg=ax.createGain();sg.gain.setValueAtTime(.09,t);sg.gain.exponentialRampToValueAtTime(.001,t+.06);
+      sn.connect(sf);sf.connect(sg);sg.connect(musicGain);sn.start(t);sn.stop(t+.08);
+      const so=ax.createOscillator();so.type='triangle';so.frequency.setValueAtTime(250,t);so.frequency.exponentialRampToValueAtTime(120,t+.04);
+      const sg2=ax.createGain();sg2.gain.setValueAtTime(.06,t);sg2.gain.exponentialRampToValueAtTime(.001,t+.05);
+      so.connect(sg2);sg2.connect(musicGain);so.start(t);so.stop(t+.06);
     }
-    // Hi-hat on every 8th note
+    // Bright hi-hats on 8th notes
     for(let h=0;h<2;h++){
       const ht=t+h*(beat/2);
       const hs=ax.createBufferSource();hs.buffer=hatBuf;
-      const hf=ax.createBiquadFilter();hf.type='highpass';hf.frequency.value=8000;
+      const hf=ax.createBiquadFilter();hf.type='highpass';hf.frequency.value=9000;
       const hg=ax.createGain();
-      const vol=h===0?.06:.03; // accent on downbeat
-      hg.gain.setValueAtTime(vol,ht);hg.gain.exponentialRampToValueAtTime(.001,ht+.04);
-      hs.connect(hf);hf.connect(hg);hg.connect(musicGain);hs.start(ht);hs.stop(ht+.05);
+      hg.gain.setValueAtTime(h===0?.055:.03,ht);hg.gain.exponentialRampToValueAtTime(.001,ht+.035);
+      hs.connect(hf);hf.connect(hg);hg.connect(musicGain);hs.start(ht);hs.stop(ht+.04);
     }
-    // Melodic arp on every other beat
+    // Bouncy melodic arp — major pentatonic, higher octave
     if(beatNum%2===0){
-      const arpNotes=[chord[1],chord[1]*1.5,chord[1]*2,chord[1]*1.5];
+      const root=chord[1];
+      const arpNotes=[root,root*1.25,root*1.5,root*2];
       arpNotes.forEach((f,i)=>{
         const at=t+i*(beat/4);
-        const ao=ax.createOscillator();ao.type='square';ao.frequency.setValueAtTime(f,at);
-        const af=ax.createBiquadFilter();af.type='lowpass';af.frequency.value=2000;af.Q.value=3;
-        const ag=ax.createGain();ag.gain.setValueAtTime(.04,at);ag.gain.exponentialRampToValueAtTime(.001,at+beat/4-.01);
+        const ao=ax.createOscillator();ao.type='sine';ao.frequency.setValueAtTime(f,at);
+        const af=ax.createBiquadFilter();af.type='lowpass';af.frequency.value=4000;af.Q.value=2;
+        const ag=ax.createGain();ag.gain.setValueAtTime(.05,at);ag.gain.exponentialRampToValueAtTime(.001,at+beat/4-.01);
         ao.connect(af);af.connect(ag);ag.connect(musicGain);ao.start(at);ao.stop(at+beat/4);
+      });
+    }
+    // Stab chord on bar start for energy
+    if(inBar===0){
+      chord.forEach(f=>{
+        const so=ax.createOscillator();so.type='sawtooth';so.frequency.setValueAtTime(f*2,t);
+        const sf2=ax.createBiquadFilter();sf2.type='lowpass';sf2.frequency.setValueAtTime(3000,t);sf2.frequency.exponentialRampToValueAtTime(800,t+.15);sf2.Q.value=2;
+        const sg3=ax.createGain();sg3.gain.setValueAtTime(.03,t);sg3.gain.exponentialRampToValueAtTime(.001,t+.15);
+        so.connect(sf2);sf2.connect(sg3);sg3.connect(musicGain);so.start(t);so.stop(t+.18);
       });
     }
     beatNum++;
@@ -343,6 +360,17 @@ case'siren':{
   // Two-tone siren: wee-woo
   o.type='sine';o.frequency.setValueAtTime(800,n);o.frequency.setValueAtTime(600,n+.15);o.frequency.setValueAtTime(800,n+.3);o.frequency.setValueAtTime(600,n+.45);
   g.gain.setValueAtTime(.07,n);g.gain.exponentialRampToValueAtTime(.001,n+.5);o.start(n);o.stop(n+.55);break}
+case'legendary':{
+  // Lottery jackpot: ascending arpeggio with shimmer
+  [523,659,784,1047,1318,1568].forEach((f,i)=>{const a=ax.createOscillator(),b=ax.createGain();a.connect(b);b.connect(sfxGain);a.type='sine';a.frequency.setValueAtTime(f,n+i*.1);b.gain.setValueAtTime(.1,n+i*.1);b.gain.exponentialRampToValueAtTime(.001,n+i*.1+.25);a.start(n+i*.1);a.stop(n+i*.1+.3)});
+  // Shimmer noise
+  const s3=ax.createBufferSource(),bf3=ax.createBuffer(1,Math.floor(ax.sampleRate*.6),ax.sampleRate),d3=bf3.getChannelData(0);for(let i=0;i<d3.length;i++)d3[i]=(Math.random()*2-1)*.15;s3.buffer=bf3;
+  const hp2=ax.createBiquadFilter();hp2.type='highpass';hp2.frequency.value=4000;const ng3=ax.createGain();s3.connect(hp2);hp2.connect(ng3);ng3.connect(sfxGain);ng3.gain.setValueAtTime(.08,n);ng3.gain.exponentialRampToValueAtTime(.001,n+.7);s3.start(n);s3.stop(n+.7);
+  o.type='sine';o.frequency.setValueAtTime(1,n);g.gain.setValueAtTime(0,n);o.start(n);o.stop(n+.01);break}
+case'epic':{
+  // Ka-ching cash register
+  o.type='square';o.frequency.setValueAtTime(2000,n);o.frequency.setValueAtTime(2500,n+.05);g.gain.setValueAtTime(.1,n);g.gain.setValueAtTime(.12,n+.05);g.gain.exponentialRampToValueAtTime(.001,n+.2);o.start(n);o.stop(n+.2);
+  const a2=ax.createOscillator(),b2=ax.createGain();a2.connect(b2);b2.connect(sfxGain);a2.type='sine';a2.frequency.setValueAtTime(1200,n+.08);a2.frequency.setValueAtTime(1600,n+.12);b2.gain.setValueAtTime(.08,n+.08);b2.gain.exponentialRampToValueAtTime(.001,n+.25);a2.start(n+.08);a2.stop(n+.25);break}
 }}
 let eT=0,rT=0,wwT=0,isWW=false,prevSpd=0;
 function tickEng(s){
@@ -389,7 +417,7 @@ const cv=document.getElementById('gameCanvas'),cx=cv.getContext('2d');
 const mc=document.getElementById('minimap'),mx=mc.getContext('2d');
 let SW,SH,TS,TX,TY,ST=[],TD=[],TTL=0;
 const COL=['#ff6b35','#35b0ff','#35ff6b','#ff35b0','#ffd700','#ff3535','#35ffd7','#b035ff'];
-const NPC=['Senna','Schumi','Hamilton','Prost','Lauda','Vettel','Alonso','Kimi'];
+const NPC=['James','Emma','Liam','Olivia','Noah','Ava','Lucas','Sophia','Ethan','Mia','Mason','Isabella','Logan','Amelia','Alex','Harper','Jack','Ella','Ben','Chloe','Ryan','Lily','Dylan','Zoe','Owen','Grace','Jake','Nora','Max','Ruby','Sam','Luna','Leo','Aria','Tom','Ivy','Kai','Maya','Finn','Layla','Cole','Riley','Luke','Zoey','Eli','Stella','Jude','Hazel','Ace','Willow'];
 let GS='menu',GM='friend',LP=null,PS={},CN=[],CH=null,IH=false,CDV=0,RST=0;
 let replayData=[],replayIdx=0,isReplaying=false;
 let CLV=0,TL=3,CPL=[3,5,7],MLV=0,NLT=0;
@@ -477,7 +505,7 @@ function goToLvl(l){
 function selLvl(l){CLV=l;const c=lvlCfg(l);document.getElementById('levelInfo').innerHTML='Level <span>'+(l+1)+'</span> — '+c.nc+' opponent'+(c.nc>1?'s':'')+' — '+c.laps+' laps'+(c.obstacles?' — '+c.obstacles+' obstacle'+(c.obstacles>1?'s':''):'');
   const start=lvlPage*3;document.querySelectorAll('#levelGrid .level-btn').forEach((b,i)=>{b.classList.remove('sel');if(start+i===l)b.classList.add('sel')})}
 
-function mkP(id,nm,col,npc){return{id,name:nm,color:col,x:0,y:0,angle:0,speed:0,progress:0,lap:0,finished:false,ftime:0,coins:0,nos:50,nosOn:false,isNpc:!!npc,nSpd:0,nNos:0,nOff:0,nAgg:0,spdFluc:0,spdFlucT:0,hp:100,dead:false,respawnAt:0,gunHeat:0,gunCoolAt:0,gunCD:false,lastShot:0,nosMax:100,gunHeatPer:8,staggerUntil:0,graceUntil:0,_lastHitBy:null,_stuckT:0,shotBurst:0}}
+function mkP(id,nm,col,npc){return{id,name:nm,color:col,x:0,y:0,angle:0,speed:0,progress:0,lap:0,finished:false,ftime:0,coins:0,nos:50,nosOn:false,isNpc:!!npc,nSpd:0,nNos:0,nOff:0,nAgg:0,spdFluc:0,spdFlucT:0,hp:100,dead:false,respawnAt:0,gunHeat:0,gunCoolAt:0,gunCD:false,lastShot:0,nosMax:100,gunHeatPer:8,staggerUntil:0,graceUntil:0,_lastHitBy:null,_stuckT:0,shotBurst:0,kills:0,arrestedUntil:0}}
 
 // === SOLO ===
 let obstacles=[]; // {x, y, pr}
@@ -570,7 +598,6 @@ function updPolice(){
     if(d<.015){
       if(!target.isNpc){
         if(now>arrestedUntil){
-          // Scale arrest by wanted level: 3s base + 2s per star
           const arrestTime=3000+wantedLevel*2000;
           arrestedUntil=now+arrestTime;
           LP.speed=0;
@@ -579,10 +606,13 @@ function updPolice(){
           police.forEach(pc=>{if(pc.targetId===LP.id)pc.caught=true});
         }
       }else{
+        // Same arrest lockup for AI: 3s base + 2s per star equivalent
+        const npcStars=police.filter(pc=>pc.targetId===target.id).length;
+        const arrestTime=3000+Math.max(npcStars,1)*2000;
         target.speed=0;
-        target.staggerUntil=Math.max(target.staggerUntil||0,now)+3000;
-        addEvent('🚔 '+target.name+' arrested!','#4488ff');
-        p.caught=true;
+        target.arrestedUntil=now+arrestTime;
+        addEvent('🚔 '+target.name+' arrested! ('+Math.max(npcStars,1)+'⭐)','#4488ff');
+        police.forEach(pc=>{if(pc.targetId===target.id)pc.caught=true});
       }
       p.caught=true;
     }
@@ -732,12 +762,14 @@ function checkSpectatorHits(){
       if(!s.alive)return;
       if(dst({x:p.x,y:p.y},{x:s.x,y:s.y})<.02){
         s.alive=false;
-        // Spawn police after the car that hit the spectator
-        if(!p.isNpc){
-          wantedLevel=Math.min(wantedLevel+1,5);
-          snd('wall');
+        // Police immunity: redirect to random AI
+        if(!p.isNpc&&GM==='infinite'&&LP._im&&LP._im.policeImmune>0){
+          const npcs=Object.values(PS).filter(n=>n.isNpc&&!n.dead);
+          if(npcs.length>0){const target=npcs[Math.floor(Math.random()*npcs.length)];spawnPoliceFor(target);addEvent('🚔 Police redirected to '+target.name,'#4488ff')}
+        }else{
+          if(!p.isNpc){wantedLevel=Math.min(wantedLevel+1,5);snd('wall')}
+          spawnPoliceFor(p);
         }
-        spawnPoliceFor(p);
       }
     });
   });
@@ -765,8 +797,8 @@ function genRC(){const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let r='';for(let i=0
 function setupCH(c){if(CH)CH.close();CH=new BroadcastChannel('race_'+c);CH.onmessage=onMsg}
 function bm(t,d){if(CH)CH.postMessage({t,s:LP.id,d})}
 function onMsg(e){const{t,s,d}=e.data;if(s===LP.id)return;
-  if(t==='join'){PS[s]={id:s,name:d.name,color:d.color,x:0,y:0,angle:0,speed:0,progress:0,lap:0,finished:false,ftime:0,coins:0,nos:50,nosOn:false,isNpc:false};if(IH)bm('plist',Object.values(PS).map(p=>({id:p.id,name:p.name,color:p.color})));updPL()}
-  if(t==='plist'){d.forEach(p=>{if(p.id!==LP.id&&!PS[p.id])PS[p.id]={...p,x:0,y:0,angle:0,speed:0,progress:0,lap:0,finished:false,ftime:0,coins:0,nos:50,nosOn:false,isNpc:false}});updPL()}
+  if(t==='join'){PS[s]=mkP(s,d.name,d.color,false);if(IH)bm('plist',Object.values(PS).map(p=>({id:p.id,name:p.name,color:p.color})));updPL()}
+  if(t==='plist'){d.forEach(p=>{if(p.id!==LP.id&&!PS[p.id])PS[p.id]=mkP(p.id,p.name,p.color,false)});updPL()}
   if(t==='start'){CN=d.cn.map(c=>({...c}));TL=d.tl||3;CPL=d.cpl||[3,5,7];startCD()}
   if(t==='upd'&&PS[s])Object.assign(PS[s],d);
   if(t==='fin'&&PS[s]){PS[s].finished=true;PS[s].ftime=d.t}
@@ -989,7 +1021,7 @@ function updLP(p){
   if(turning&&p.speed>.3){p.speed*=.997} // very gentle drag when steering
   moveP(p);tickEng(p.speed);p._im=im;
   if(i.fire)shoot(p);
-  if(GM==='friend')bm('upd',{x:p.x,y:p.y,angle:p.angle,speed:p.speed,progress:p.progress,lap:p.lap,coins:p.coins,finished:p.finished,nosOn:p.nosOn})
+  if(GM==='friend')bm('upd',{x:p.x,y:p.y,angle:p.angle,speed:p.speed,progress:p.progress,lap:p.lap,coins:p.coins,finished:p.finished,nosOn:p.nosOn,hp:p.hp,dead:p.dead,kills:p.kills})
 }
 
 function moveP(p){
@@ -1090,8 +1122,9 @@ function moveP(p){
   if(nextIdx>=0){const c=CN[nextIdx];if(!coinGotBy(c,p.id)&&dst({x:p.x,y:p.y},{x:c.x,y:c.y})<coinR){coinSetGot(c,p.id);p.coins++;
     if(p.isNpc){/* AI gets NOS from passive regen only */}
     else{const nosCap=Math.round(100*(p._im?p._im.nosCap:1));
-      if(c.boost){p.nos=Math.min(nosCap,p.nos+nosCap);snd('boost')}
-      else{p.nos=Math.min(nosCap,p.nos+20);snd('coin')}
+      const nosGain=p._im?p._im.nosRegen:1;
+      if(c.boost){p.nos=Math.min(nosCap,p.nos+Math.round(nosCap*nosGain));snd('boost')}
+      else{p.nos=Math.min(nosCap,p.nos+Math.round(20*nosGain));snd('coin')}
       // Coin heal buff
       if(GM==='infinite'&&p._im&&p._im.coinHeal>0){const maxHp4=100+(p._im.hpBonus||0);p.hp=Math.min(maxHp4,p.hp+p._im.coinHeal)}
     }}}
@@ -1144,11 +1177,12 @@ function destroyCar(p){
   p.dead=true;p.speed=0;
   explosions.push({x:p.x,y:p.y,t:performance.now(),color:p.color});
   snd('explode');
-  // Event log
+  // Kill attribution
   if(p._lastHitBy){
     const attacker=PS[p._lastHitBy];
-    const aName=attacker?attacker.name:'???';
-    addEvent(aName+' 💥 '+p.name,'#ff4444');
+    if(attacker){attacker.kills=(attacker.kills||0)+1;
+      addEvent(attacker.name+' 💥 '+p.name,'#ff4444');}
+    else{addEvent(p.name+' destroyed','#ff8800')}
   }else{addEvent(p.name+' destroyed','#ff8800')}
   // Infinite mode: player death = game over
   if(GM==='infinite'&&p.id===LP.id){
@@ -1199,6 +1233,8 @@ function regenAINos(){
 
 // === NPC AI ===
 function updNPC(n){if(n.finished||n.dead||GS!=='racing')return;
+  // Arrest lockup - NPC frozen
+  if(n.arrestedUntil&&performance.now()<n.arrestedUntil){n.speed=0;return;}
 // Stuck detection: if barely moving for 60 frames, teleport forward
 n._stuckT=(n._stuckT||0);
 if(n.speed<.05)n._stuckT++;else n._stuckT=0;
@@ -1288,34 +1324,75 @@ function showLA(t){const e=document.getElementById('lapAlert');e.textContent=t;e
 function seedToNum(s){let h=0;s=String(s);for(let i=0;i<s.length;i++){h=((h<<5)-h)+s.charCodeAt(i);h|=0}return Math.abs(h)||1}
 function updTTSeed(){const raw=document.getElementById('ttSeed').value.trim();ttSeed=raw||'1';const num=seedToNum(ttSeed);const box=document.getElementById('ttHSBox');const hs=ttHighScores[ttSeed];if(hs){box.innerHTML='<span style="color:#ffd700">🏆 Best: '+hs.toFixed(2)+'s</span> <span style="color:#555">Seed: '+ttSeed+'</span>'}else{box.innerHTML='<span style="color:#555">No record for seed "'+ttSeed+'"</span>'}}
 // === INFINITE MODE ===
+// Rarity: common (10%), epic (30%), legendary (50%)
+// Weights: common=80, epic=15, legendary=5
 const INF_BUFFS=[
-  {pos:'🚀 NOS lasts 50% longer',neg:'NOS regens 50% slower',posK:'nosDrain',posV:.5,negK:'nosRegen',negV:.5},
-  {pos:'💪 Deal 50% more damage',neg:'Take 25% more damage',posK:'dmgOut',posV:1.5,negK:'dmgIn',negV:1.25},
-  {pos:'⚡ 30% faster top speed',neg:'Brake 30% weaker',posK:'spdMult',posV:1.3,negK:'brakeMult',negV:.7},
-  {pos:'🛡 Take 30% less damage',neg:'Deal 30% less damage',posK:'dmgIn',posV:.7,negK:'dmgOut',negV:.7},
-  {pos:'🎯 Gun cools 5% faster',neg:'Bullets live 30% shorter',posK:'gunCool',posV:1.05,negK:'bulletLife',negV:.7},
-  {pos:'💨 Accelerate 40% faster',neg:'Max speed -10%',posK:'accelMult',posV:1.4,negK:'spdMult',negV:.9},
-  {pos:'🔥 NOS 30% more powerful',neg:'NOS capacity -25%',posK:'nosPower',posV:1.3,negK:'nosCap',negV:.75},
-  {pos:'❤️ +50 max HP',neg:'Speed -15%',posK:'hpBonus',posV:50,negK:'spdMult',negV:.85},
-  {pos:'🩸 Heal 2 HP per hit dealt',neg:'Enemies heal 1 HP per hit on you',posK:'lifeSteal',posV:2,negK:'enemyLifeSteal',negV:1},
-  {pos:'💉 Regen 1 HP/sec',neg:'Max HP -25',posK:'hpRegen',posV:1,negK:'hpBonus',negV:-25},
-  {pos:'🧲 Heal 15 HP per coin',neg:'Take 40% more damage',posK:'coinHeal',posV:15,negK:'dmgIn',negV:1.4},
-  {pos:'💀 Kills heal 30 HP',neg:'Take 50% more damage',posK:'killHeal',posV:30,negK:'dmgIn',negV:1.5},
-  {pos:'🔬 Player car 20% smaller',neg:'Enemy cars 20% bigger',posK:'playerSize',posV:.8,negK:'enemySize',negV:1.2},
-  {pos:'🔎 Enemy cars 25% bigger',neg:'Player car 15% bigger',posK:'enemySize',posV:1.25,negK:'playerSize',negV:1.15},
+  // COMMON (10% values)
+  {pos:'🚀 NOS lasts 10% longer',neg:'NOS gain -10%',posK:'nosDrain',posV:.9,negK:'nosRegen',negV:.9,rarity:'common'},
+  {pos:'💪 Deal 10% more damage',neg:'Take 5% more damage',posK:'dmgOut',posV:1.1,negK:'dmgIn',negV:1.05,rarity:'common'},
+  {pos:'⚡ 10% faster top speed',neg:'Brake 10% weaker',posK:'spdMult',posV:1.1,negK:'brakeMult',negV:.9,rarity:'common'},
+  {pos:'🛡 Take 10% less damage',neg:'Deal 10% less damage',posK:'dmgIn',posV:.9,negK:'dmgOut',negV:.9,rarity:'common'},
+  {pos:'🎯 Gun cools 5% faster',neg:'Bullets live 10% shorter',posK:'gunCool',posV:1.05,negK:'bulletLife',negV:.9,rarity:'common'},
+  {pos:'💨 Accelerate 10% faster',neg:'Max speed -5%',posK:'accelMult',posV:1.1,negK:'spdMult',negV:.95,rarity:'common'},
+  {pos:'🔥 NOS 10% more powerful',neg:'NOS capacity -10%',posK:'nosPower',posV:1.1,negK:'nosCap',negV:.9,rarity:'common'},
+  {pos:'❤️ +15 max HP',neg:'Speed -5%',posK:'hpBonus',posV:15,negK:'spdMult',negV:.95,rarity:'common'},
+  {pos:'🩸 Heal 1 HP per hit dealt',neg:'Enemies heal 1 HP per hit on you',posK:'lifeSteal',posV:1,negK:'enemyLifeSteal',negV:1,rarity:'common'},
+  {pos:'🧲 Heal 5 HP per coin',neg:'Take 10% more damage',posK:'coinHeal',posV:5,negK:'dmgIn',negV:1.1,rarity:'common'},
+  // EPIC (30% values)
+  {pos:'🚀 NOS lasts 30% longer',neg:'NOS gain -25%',posK:'nosDrain',posV:.7,negK:'nosRegen',negV:.75,rarity:'epic'},
+  {pos:'💪 Deal 30% more damage',neg:'Take 15% more damage',posK:'dmgOut',posV:1.3,negK:'dmgIn',negV:1.15,rarity:'epic'},
+  {pos:'⚡ 20% faster top speed',neg:'Brake 20% weaker',posK:'spdMult',posV:1.2,negK:'brakeMult',negV:.8,rarity:'epic'},
+  {pos:'🛡 Take 20% less damage',neg:'Deal 20% less damage',posK:'dmgIn',posV:.8,negK:'dmgOut',negV:.8,rarity:'epic'},
+  {pos:'💨 Accelerate 25% faster',neg:'Max speed -10%',posK:'accelMult',posV:1.25,negK:'spdMult',negV:.9,rarity:'epic'},
+  {pos:'❤️ +30 max HP',neg:'Speed -10%',posK:'hpBonus',posV:30,negK:'spdMult',negV:.9,rarity:'epic'},
+  {pos:'🩸 Heal 3 HP per hit dealt',neg:'Enemies heal 2 HP per hit on you',posK:'lifeSteal',posV:3,negK:'enemyLifeSteal',negV:2,rarity:'epic'},
+  {pos:'💉 Regen 1 HP/sec',neg:'Max HP -15',posK:'hpRegen',posV:1,negK:'hpBonus',negV:-15,rarity:'epic'},
+  {pos:'💀 Kills heal 20 HP',neg:'Take 25% more damage',posK:'killHeal',posV:20,negK:'dmgIn',negV:1.25,rarity:'epic'},
+  // LEGENDARY (50% values)
+  {pos:'🚀 NOS lasts 50% longer',neg:'NOS gain -50%',posK:'nosDrain',posV:.5,negK:'nosRegen',negV:.5,rarity:'legendary'},
+  {pos:'💪 Deal 50% more damage',neg:'Take 25% more damage',posK:'dmgOut',posV:1.5,negK:'dmgIn',negV:1.25,rarity:'legendary'},
+  {pos:'⚡ 35% faster top speed',neg:'Brake 35% weaker',posK:'spdMult',posV:1.35,negK:'brakeMult',negV:.65,rarity:'legendary'},
+  {pos:'🛡 Take 35% less damage',neg:'Deal 35% less damage',posK:'dmgIn',posV:.65,negK:'dmgOut',negV:.65,rarity:'legendary'},
+  {pos:'❤️ +50 max HP',neg:'Speed -15%',posK:'hpBonus',posV:50,negK:'spdMult',negV:.85,rarity:'legendary'},
+  {pos:'💀 Kills heal 40 HP',neg:'Take 40% more damage',posK:'killHeal',posV:40,negK:'dmgIn',negV:1.4,rarity:'legendary'},
+  {pos:'🧲 Heal 20 HP per coin',neg:'Take 30% more damage',posK:'coinHeal',posV:20,negK:'dmgIn',negV:1.3,rarity:'legendary'},
+  {pos:'💉 Regen 3 HP/sec',neg:'Max HP -30',posK:'hpRegen',posV:3,negK:'hpBonus',negV:-30,rarity:'legendary'},
+  // Car size (common/epic)
+  {pos:'🔬 Player car 5% smaller',neg:'Enemy cars 5% bigger',posK:'playerSize',posV:.95,negK:'enemySize',negV:1.05,rarity:'common'},
+  {pos:'🔬 Player car 15% smaller',neg:'Enemy cars 15% bigger',posK:'playerSize',posV:.85,negK:'enemySize',negV:1.15,rarity:'epic'},
+  {pos:'🔎 Enemy cars 10% bigger',neg:'Player car 5% bigger',posK:'enemySize',posV:1.1,negK:'playerSize',negV:1.05,rarity:'common'},
+  {pos:'🔎 Enemy cars 25% bigger',neg:'Player car 15% bigger',posK:'enemySize',posV:1.25,negK:'playerSize',negV:1.15,rarity:'epic'},
+  {pos:'🚔 Police ignore you, chase AI instead',neg:'🌋 Grass becomes lava (DOT)',posK:'policeImmune',posV:1,negK:'lavaGrass',negV:1,rarity:'legendary',unique:true},
 ];
+const RARITY_WEIGHTS={common:80,epic:15,legendary:5};
+const RARITY_COLORS={common:'#aaa',epic:'#c850f0',legendary:'#ffd700'};
+const RARITY_LABELS={common:'',epic:'✦ EPIC',legendary:'★ LEGENDARY'};
+function rollRarity(){const r=Math.random()*100;if(r<RARITY_WEIGHTS.legendary)return'legendary';if(r<RARITY_WEIGHTS.legendary+RARITY_WEIGHTS.epic)return'epic';return'common';}
+function getAvailableBuffs(){
+  // Filter out unique buffs already obtained this run
+  const ownedUniques=new Set();
+  if(infRun)infRun.buffs.forEach(b=>{if(b._unique)ownedUniques.add(b.pos)});
+  return INF_BUFFS.filter(b=>!b.unique||!ownedUniques.has(b.pos));
+}
+function pickBuffFromPool(available,exclude){
+  const r=rollRarity();
+  let pool=available.filter(b=>b.rarity===r&&b!==exclude);
+  if(pool.length===0)pool=available.filter(b=>b!==exclude);
+  if(pool.length===0)pool=available;
+  return pool[Math.floor(Math.random()*pool.length)];
+}
 let infRun=null; // {lap, seed, buffs:[{posK,posV,negK,negV}], mods:{}}
 let infChoices=[];
 function getInfMods(){
-  const m={nosDrain:1,nosRegen:1,dmgOut:1,dmgIn:1,spdMult:1,brakeMult:1,gunCool:1,bulletLife:1,accelMult:1,nosPower:1,nosCap:1,hpBonus:0,lifeSteal:0,enemyLifeSteal:0,hpRegen:0,coinHeal:0,killHeal:0,playerSize:1,enemySize:1,enemySpdMult:1};
+  const m={nosDrain:1,nosRegen:1,dmgOut:1,dmgIn:1,spdMult:1,brakeMult:1,gunCool:1,bulletLife:1,accelMult:1,nosPower:1,nosCap:1,hpBonus:0,lifeSteal:0,enemyLifeSteal:0,hpRegen:0,coinHeal:0,killHeal:0,enemySpdMult:1,playerSize:1,enemySize:1,policeImmune:0,lavaGrass:0};
   if(!infRun)return m;
   infRun.buffs.forEach(b=>{
     if(b.posK==='addCar'||b.posK==='none'){}
-    else if(b.posK==='hpBonus'||b.posK==='lifeSteal'||b.posK==='hpRegen'||b.posK==='coinHeal'||b.posK==='killHeal')m[b.posK]+=b.posV;
+    else if(b.posK==='hpBonus'||b.posK==='lifeSteal'||b.posK==='hpRegen'||b.posK==='coinHeal'||b.posK==='killHeal'||b.posK==='policeImmune'||b.posK==='lavaGrass')m[b.posK]+=b.posV;
     else if(b.posK==='enemyLifeSteal')m.enemyLifeSteal+=b.posV;
     else m[b.posK]=(m[b.posK]||1)*b.posV;
     if(b.negK==='addCar'||b.negK==='none'){}
-    else if(b.negK==='hpBonus'||b.negK==='lifeSteal'||b.negK==='hpRegen'||b.negK==='coinHeal'||b.negK==='killHeal')m[b.negK]+=b.negV;
+    else if(b.negK==='hpBonus'||b.negK==='lifeSteal'||b.negK==='hpRegen'||b.negK==='coinHeal'||b.negK==='killHeal'||b.negK==='policeImmune'||b.negK==='lavaGrass')m[b.negK]+=b.negV;
     else if(b.negK==='enemyLifeSteal')m.enemyLifeSteal+=b.negV;
     else m[b.negK]=(m[b.negK]||1)*b.negV;
   });
@@ -1379,21 +1456,33 @@ function showInfLapChoice(){
   let buffStr='';
   infRun.buffs.forEach(b=>{buffStr+='<div>'+b.pos+' / '+b.neg+'</div>'});
   document.getElementById('infBuffs').innerHTML=buffStr||'No buffs yet';
-  // Pick 2 random choices, each with a random enemy speed boost
-  const shuffled=[...INF_BUFFS].sort(()=>Math.random()-.5);
+  // Pick 2 random choices with weighted rarity
+  const available=getAvailableBuffs();
+  const c1=pickBuffFromPool(available,null);
+  const c2=pickBuffFromPool(available,c1);
   infChoices=[
-    {...shuffled[0],enemySpdBoost:Math.round(5+Math.random()*15)},
-    {...shuffled[1],enemySpdBoost:Math.round(5+Math.random()*15)}
+    {...c1,enemySpdBoost:Math.round(5+Math.random()*15)},
+    {...c2,enemySpdBoost:Math.round(5+Math.random()*15)}
   ];
   infHealSpdBoost=Math.round(5+Math.random()*15);
-  document.getElementById('infChoiceA').innerHTML='<span style="color:#5f5">'+infChoices[0].pos+'</span><br><span style="color:#f55">'+infChoices[0].neg+'</span><br><span style="color:#f88;font-size:12px">⚠ Enemies +'+infChoices[0].enemySpdBoost+'% speed</span>';
-  document.getElementById('infChoiceB').innerHTML='<span style="color:#5f5">'+infChoices[1].pos+'</span><br><span style="color:#f55">'+infChoices[1].neg+'</span><br><span style="color:#f88;font-size:12px">⚠ Enemies +'+infChoices[1].enemySpdBoost+'% speed</span>';
+  // Play sound for rare choices
+  const maxR=[infChoices[0].rarity,infChoices[1].rarity].sort((a,b)=>{const o={legendary:2,epic:1,common:0};return o[b]-o[a]})[0];
+  if(maxR==='legendary')snd('legendary');else if(maxR==='epic')snd('epic');
+  function fmtChoice(c){
+    const rc=RARITY_COLORS[c.rarity]||'#aaa';const rl=RARITY_LABELS[c.rarity];
+    return(rl?'<div style="color:'+rc+';font-size:11px;font-weight:bold;letter-spacing:1px;margin-bottom:4px">'+rl+'</div>':'')+
+      '<span style="color:#5f5">'+c.pos+'</span><br><span style="color:#f55">'+c.neg+'</span><br><span style="color:#f88;font-size:12px">⚠ Enemies +'+c.enemySpdBoost+'% speed</span>';
+  }
+  document.getElementById('infChoiceA').innerHTML=fmtChoice(infChoices[0]);
+  document.getElementById('infChoiceA').style.borderColor=RARITY_COLORS[infChoices[0].rarity]||'rgba(50,255,50,.3)';
+  document.getElementById('infChoiceB').innerHTML=fmtChoice(infChoices[1]);
+  document.getElementById('infChoiceB').style.borderColor=RARITY_COLORS[infChoices[1].rarity]||'rgba(255,50,50,.3)';
   document.getElementById('infChoiceHeal').innerHTML='<span style="color:#0cf">💚 Heal 50% HP</span><br><span style="color:#f55">🚗 +1 Enemy Car</span><br><span style="color:#f88;font-size:12px">⚠ Enemies +'+infHealSpdBoost+'% speed</span>';
 }
 function pickInfBuff(idx){
   const choice=infChoices[idx];
   const eSpdBoost=choice.enemySpdBoost||10;
-  infRun.buffs.push({posK:choice.posK,posV:choice.posV,negK:choice.negK,negV:choice.negV,pos:choice.pos,neg:choice.neg,enemySpdBoost:eSpdBoost});
+  infRun.buffs.push({posK:choice.posK,posV:choice.posV,negK:choice.negK,negV:choice.negV,pos:choice.pos,neg:choice.neg,enemySpdBoost:eSpdBoost,rarity:choice.rarity||'common',_unique:!!choice.unique});
   infRun.lap++;
   document.getElementById('infOverlay').classList.add('hidden');
   // Apply enemy speed boost to all current NPCs
@@ -1505,7 +1594,8 @@ function startTT(){
 function showRes(){
   GS='finished';const sorted=Object.values(PS).sort((a,b)=>{if(a.finished&&!b.finished)return-1;if(!a.finished&&b.finished)return 1;return a.ftime-b.ftime});
   const pl=['🥇','🥈','🥉','4th','5th','6th','7th','8th','9th'];
-  document.getElementById('resBody').innerHTML=sorted.map((p,i)=>{const ts=p.finished?(p.ftime/1000).toFixed(2)+'s':'DNF';return'<div class="results-row"><span class="pos">'+pl[i]+'</span><span style="color:'+p.color+'">'+p.name+(p.id===LP.id?' (YOU)':'')+'</span><span class="time">'+ts+'</span></div>'}).join('');
+  const showKills=GM!=='tt';
+  document.getElementById('resBody').innerHTML=sorted.map((p,i)=>{const ts=p.finished?(p.ftime/1000).toFixed(2)+'s':'DNF';const k=showKills&&p.kills?' <span style="color:#f55;font-size:12px">💀'+p.kills+'</span>':'';return'<div class="results-row"><span class="pos">'+pl[i]+'</span><span style="color:'+p.color+'">'+p.name+(p.id===LP.id?' (YOU)':'')+'</span><span class="time">'+ts+k+'</span></div>'}).join('');
   const sub=document.getElementById('resSub'),b1=document.getElementById('resBtn1'),b2=document.getElementById('resBtn2');
   b1.classList.remove('hidden');b2.classList.remove('hidden');sub.classList.remove('hidden');
   if(GM==='solo'){const pp=sorted.findIndex(p=>p.id===LP.id);
@@ -1552,25 +1642,58 @@ function returnToLobby(){
   else{showScreen('joinScreen');document.getElementById('joinInfo').style.display='block';updPL()}
 }
 
-function hideG(){document.getElementById('hud').classList.add('hidden');document.getElementById('mobileCtrl').classList.add('hidden');document.getElementById('nosBar').style.display='none';document.getElementById('ttHud').classList.add('hidden');document.getElementById('pauseMenu').style.display='none'}
+function hideG(){document.getElementById('hud').classList.add('hidden');document.getElementById('mobileCtrl').classList.add('hidden');document.getElementById('nosBar').style.display='none';document.getElementById('ttHud').classList.add('hidden');document.getElementById('pauseMenu').style.display='none';document.getElementById('gameCanvas').style.display='block'}
 function backToMenu(){GS='menu';document.getElementById('results').classList.add('hidden');document.getElementById('infOverlay').classList.add('hidden');document.getElementById('infGameOver').classList.add('hidden');hideG();document.getElementById('roomInfo').style.display='none';document.getElementById('joinInfo').style.display='none';if(CH){CH.close();CH=null}PS={};bullets=[];spectators=[];police=[];eventLog=[];showScreen('menuScreen')}
 
 let paused=false,prePauseGS='';
+let killPage=0,killList=[];
+function renderKillPage(){
+  const pk=document.getElementById('pauseKills');
+  const perPage=5,total=killList.length,pages=Math.ceil(total/perPage);
+  const start=killPage*perPage,end=Math.min(start+perPage,total);
+  const slice=killList.slice(start,end);
+  let html='<div style="font-family:Orbitron;font-size:11px;color:#ff6b35;margin-bottom:4px">💀 KILLS</div>';
+  html+=slice.map((p,i)=>'<div style="color:'+p.color+'">'+(start+i+1)+'. '+p.name+': '+p.kills+'</div>').join('');
+  if(pages>1){
+    html+='<div style="display:flex;justify-content:center;gap:8px;margin-top:6px">';
+    html+='<span onclick="killPage=Math.max(0,killPage-1);renderKillPage()" style="cursor:pointer;color:'+(killPage>0?'#ff6b35':'#333')+'">◀</span>';
+    html+='<span style="color:#888;font-size:11px">'+(killPage+1)+'/'+pages+'</span>';
+    html+='<span onclick="killPage=Math.min('+(pages-1)+',killPage+1);renderKillPage()" style="cursor:pointer;color:'+(killPage<pages-1?'#ff6b35':'#333')+'">▶</span>';
+    html+='</div>';
+  }
+  pk.innerHTML=html;
+}
 function togglePause(){
   if(isReplaying)return;
   if(!paused&&(GS==='racing'||GS==='countdown')){
-    paused=true;prePauseGS=GS;GS='paused';
+    paused=true;prePauseGS=GS;
+    // In Vs Friend, don't actually pause
+    if(GM!=='friend')GS='paused';
     document.getElementById('pauseMenu').style.display='flex';
+    // Title: PAUSED or "Game not paused" for friend mode
+    const pt=document.getElementById('pauseTitle');
+    if(pt)pt.textContent=GM==='friend'?'Game not paused':'PAUSED';
+    // Hide canvas in non-friend modes
+    if(GM!=='friend')document.getElementById('gameCanvas').style.display='none';
     // Show infinite buffs if in infinite mode
     const ib=document.getElementById('pauseInfBuffs');
     if(GM==='infinite'&&infRun&&infRun.buffs.length>0){
       ib.style.display='block';
       ib.innerHTML='<div style="font-family:Orbitron;font-size:11px;color:#ff6b35;margin-bottom:6px">♾ BUFFS (Lap '+(infRun.lap+1)+')</div>'+
-        infRun.buffs.map(b=>'<div style="font-family:Rajdhani;font-size:12px;margin-bottom:4px;padding:4px 6px;background:rgba(255,255,255,.05);border-radius:4px"><span style="color:#5f5">'+b.pos+'</span><br><span style="color:#f55">'+b.neg+'</span></div>').join('');
+        infRun.buffs.map(b=>{const rc=RARITY_COLORS[b.rarity]||'#aaa';return'<div style="font-family:Rajdhani;font-size:12px;margin-bottom:4px;padding:4px 6px;background:rgba(255,255,255,.05);border-radius:4px;border-left:2px solid '+rc+'"><span style="color:#5f5">'+b.pos+'</span><br><span style="color:#f55">'+b.neg+'</span></div>'}).join('');
     }else{ib.style.display='none'}
+    // Kill leaderboard (all modes except TT)
+    const pk=document.getElementById('pauseKills');
+    if(GM!=='tt'){
+      const sorted=Object.values(PS).filter(p=>p.kills>0).sort((a,b)=>b.kills-a.kills);
+      if(sorted.length>0){
+        killPage=0;killList=sorted;renderKillPage();
+      }else{pk.innerHTML='<div style="font-family:Orbitron;font-size:11px;color:#555;margin-bottom:4px">💀 No kills yet</div>'}
+    }else{pk.innerHTML=''}
   }else if(paused){
     paused=false;GS=prePauseGS;
     document.getElementById('pauseMenu').style.display='none';
+    document.getElementById('gameCanvas').style.display='block';
   }
 }
 function abortRace(){
@@ -1606,12 +1729,23 @@ function genTerrain(){
 
 function drawTerrain(){
   const ext=800;
-  cx.fillStyle='#0d1a0d';cx.fillRect(TX-ext,TY-ext,TS+ext*2,TS+ext*2);
-  cx.fillStyle='#0e1b0e';cx.fillRect(TX-ext,TY-ext,(TS+ext*2)/2,TS+ext*2);
-  cx.fillStyle='#0c190c';cx.fillRect(TX-ext+(TS+ext*2)/2,TY-ext,(TS+ext*2)/2,(TS+ext*2)/2);
+  const isLava=GM==='infinite'&&LP&&LP._im&&LP._im.lavaGrass>0;
+  const pulse=isLava?(.7+Math.sin(performance.now()*.003)*.3):0;
+  if(isLava){
+    cx.fillStyle='rgb('+(30+Math.floor(pulse*40))+','+Math.floor(5+pulse*10)+',0)';
+  }else{cx.fillStyle='#0d1a0d'}
+  cx.fillRect(TX-ext,TY-ext,TS+ext*2,TS+ext*2);
+  if(isLava){cx.fillStyle='rgb('+(35+Math.floor(pulse*35))+','+Math.floor(8+pulse*8)+',0)'}else{cx.fillStyle='#0e1b0e'}
+  cx.fillRect(TX-ext,TY-ext,(TS+ext*2)/2,TS+ext*2);
+  if(isLava){cx.fillStyle='rgb('+(25+Math.floor(pulse*30))+','+Math.floor(3+pulse*5)+',0)'}else{cx.fillStyle='#0c190c'}
+  cx.fillRect(TX-ext+(TS+ext*2)/2,TY-ext,(TS+ext*2)/2,(TS+ext*2)/2);
   const items=genTerrain();
-  // Grass
-  items.grass.forEach(d=>{cx.fillStyle=d.clr;cx.fillRect(d.x,d.y,d.sz,d.sz*.6)});
+  // Grass (or lava patches)
+  items.grass.forEach(d=>{
+    if(isLava){const lp2=.5+Math.sin(d.x*.01+performance.now()*.002)*.5;cx.fillStyle='rgb('+(160+Math.floor(lp2*80))+','+(20+Math.floor(lp2*40))+',0)'}
+    else{cx.fillStyle=d.clr}
+    cx.fillRect(d.x,d.y,d.sz,d.sz*.6)
+  });
   // Trees
   items.trees.forEach(t=>{
     cx.fillStyle=t.trunk;cx.fillRect(t.x+t.sz*.35,t.y+t.sz*.4,t.sz*.3,t.sz*.6);
@@ -1689,28 +1823,91 @@ else{if(isNext)cx.translate(0,Math.sin(t*2+c.x*50)*2);cx.beginPath();cx.arc(0,0,
 cx.restore()})}
 
 function drawCar(p){if(p.dead)return;
-// Grace period: flash the car
-const inGrace=p.graceUntil&&performance.now()<p.graceUntil;
-if(inGrace&&Math.sin(performance.now()*.02)>0)cx.globalAlpha=.4;else cx.globalAlpha=1;
-const sp=toS(p.x,p.y);cx.save();cx.translate(sp.x,sp.y);
-// Grace period flash — first 5 seconds cars are ghosted
-const raceT=(performance.now()-RST)/1000;
+const now6=performance.now();
+const inGrace=p.graceUntil&&now6<p.graceUntil;
+const raceT=(now6-RST)/1000;
 const startGrace=GS==='racing'&&raceT<5;
-if(startGrace){cx.globalAlpha=.4+Math.sin(performance.now()*.015)*.25}
+const isGraced=inGrace||startGrace;
+if(isGraced){cx.globalAlpha=.2+Math.abs(Math.sin(now6*.012))*.5}else{cx.globalAlpha=1}
+const sp=toS(p.x,p.y);cx.save();cx.translate(sp.x,sp.y);
 cx.rotate(p.angle);
-// Car size scaling from infinite buffs
 const carScale=GM==='infinite'?(p.isNpc?(getInfMods().enemySize||1):(LP._im?LP._im.playerSize:1)):1;
 if(carScale!==1)cx.scale(carScale,carScale);
-if(p.nosOn){cx.save();for(let i=0;i<6;i++){cx.globalAlpha=.4-i*.06;cx.fillStyle=i%2?'#0cf':'#08f';cx.beginPath();cx.ellipse(-12-i*5,(Math.random()-.5)*3,4+Math.random()*2,2+Math.random()*2,0,0,Math.PI*2);cx.fill()}cx.restore()}
-if(p.speed<-.02&&!p.isNpc){cx.save();cx.globalAlpha=.3;cx.fillStyle='#f44';cx.beginPath();cx.arc(14,(Math.random()-.5)*4,3+Math.random()*2,0,Math.PI*2);cx.fill();cx.restore()}
+// Grace shield bubble (drawn behind car)
+if(isGraced){
+  cx.save();
+  const pulse=.5+Math.sin(now6*.01)*.5;
+  // Outer shield ring — thick, bright, rotating dash
+  cx.strokeStyle='rgba(0,220,255,'+(.5+pulse*.4)+')';cx.lineWidth=2.5;
+  cx.setLineDash([6,4]);cx.lineDashOffset=now6*.03;
+  cx.beginPath();cx.ellipse(0,0,22,15,0,0,Math.PI*2);cx.stroke();
+  cx.setLineDash([]);
+  // Second ring
+  cx.strokeStyle='rgba(255,255,255,'+(.15+pulse*.15)+')';cx.lineWidth=1;
+  cx.setLineDash([3,5]);cx.lineDashOffset=-now6*.02;
+  cx.beginPath();cx.ellipse(0,0,25,17,0,0,Math.PI*2);cx.stroke();
+  cx.setLineDash([]);
+  // Inner glow fill
+  cx.fillStyle='rgba(0,200,255,'+(.06+pulse*.06)+')';
+  cx.beginPath();cx.ellipse(0,0,20,13,0,0,Math.PI*2);cx.fill();
+  // Corner sparkles
+  for(let i=0;i<4;i++){
+    const sa=i*Math.PI/2+now6*.003;
+    const sx=Math.cos(sa)*20,sy=Math.sin(sa)*13;
+    cx.fillStyle='rgba(255,255,255,'+(.3+pulse*.5)+')';
+    cx.beginPath();cx.arc(sx,sy,1.5+pulse,0,Math.PI*2);cx.fill();
+  }
+  cx.restore();
+}
+// NOS flame
+if(p.nosOn){cx.save();for(let i=0;i<6;i++){cx.globalAlpha=.4-i*.06;cx.fillStyle=i%2?'#0cf':'#08f';cx.beginPath();cx.ellipse(-14-i*5,(Math.random()-.5)*3,4+Math.random()*2,2+Math.random()*2,0,0,Math.PI*2);cx.fill()}cx.restore()}
+// Reverse lights
+if(p.speed<-.02&&!p.isNpc){cx.save();cx.globalAlpha=.3;cx.fillStyle='#f44';cx.beginPath();cx.arc(16,(Math.random()-.5)*4,3+Math.random()*2,0,Math.PI*2);cx.fill();cx.restore()}
 cx.shadowColor=p.color;cx.shadowBlur=p.nosOn?20:6;
-cx.fillStyle='#222';cx.fillRect(-9,-8,5,3);cx.fillRect(-9,5,5,3);cx.fillRect(5,-8,4,3);cx.fillRect(5,5,4,3);
-cx.fillStyle=p.color;cx.beginPath();cx.roundRect(-10,-6,22,12,3);cx.fill();
-cx.fillStyle=shade(p.color,-30);cx.beginPath();cx.roundRect(4,-5,7,10,[0,2,2,0]);cx.fill();
-cx.fillStyle='rgba(150,220,255,.5)';cx.beginPath();cx.roundRect(2,-4,4,8,1);cx.fill();
-cx.fillStyle=shade(p.color,-50);cx.fillRect(-10,-5,3,10);
-cx.fillStyle='#ffc';cx.shadowColor='#ffc';cx.shadowBlur=3;cx.fillRect(11,-4,2,2);cx.fillRect(11,2,2,2);cx.shadowBlur=0;
-cx.fillStyle='#f22';cx.fillRect(-11,-4,1,2);cx.fillRect(-11,2,1,2);
+// Wheels (dark, low profile)
+cx.fillStyle='#111';
+cx.fillRect(-10,-8,4,2.5);cx.fillRect(-10,5.5,4,2.5); // rear
+cx.fillRect(6,-7.5,3,2);cx.fillRect(6,5.5,3,2); // front
+// Supercar body — tapered nose, wide rear
+cx.fillStyle=p.color;cx.beginPath();
+cx.moveTo(14,0); // nose tip
+cx.lineTo(10,-4); // front fender top
+cx.lineTo(4,-5.5); // cabin start top
+cx.lineTo(-4,-7); // widest rear top
+cx.lineTo(-12,-6); // rear top
+cx.lineTo(-13,-3); // rear corner top
+cx.lineTo(-13,3); // rear corner bottom
+cx.lineTo(-12,6); // rear bottom
+cx.lineTo(-4,7); // widest rear bottom
+cx.lineTo(4,5.5); // cabin start bottom
+cx.lineTo(10,4); // front fender bottom
+cx.closePath();cx.fill();
+// Roof/cabin (darker, inset)
+cx.fillStyle=shade(p.color,-40);cx.beginPath();
+cx.moveTo(6,0); // windshield point
+cx.lineTo(2,-3.5);cx.lineTo(-5,-4.5);cx.lineTo(-8,-4);
+cx.lineTo(-8,4);cx.lineTo(-5,4.5);cx.lineTo(2,3.5);
+cx.closePath();cx.fill();
+// Windshield (glass)
+cx.fillStyle='rgba(150,220,255,.45)';cx.beginPath();
+cx.moveTo(6,0);cx.lineTo(3,-3);cx.lineTo(1,-3.2);cx.lineTo(1,3.2);cx.lineTo(3,3);
+cx.closePath();cx.fill();
+// Rear window
+cx.fillStyle='rgba(150,220,255,.3)';cx.beginPath();
+cx.moveTo(-6,-3.8);cx.lineTo(-8,-3.5);cx.lineTo(-8,3.5);cx.lineTo(-6,3.8);
+cx.closePath();cx.fill();
+// Rear spoiler
+cx.fillStyle=shade(p.color,-60);cx.fillRect(-13,-7.5,2,15);
+// Side air intakes
+cx.fillStyle='rgba(0,0,0,.3)';
+cx.fillRect(-2,-6.5,4,1.5);cx.fillRect(-2,5,4,1.5);
+// Headlights
+cx.fillStyle='#ffc';cx.shadowColor='#ffc';cx.shadowBlur=4;
+cx.beginPath();cx.ellipse(13,-2.5,1.5,1,0,0,Math.PI*2);cx.fill();
+cx.beginPath();cx.ellipse(13,2.5,1.5,1,0,0,Math.PI*2);cx.fill();cx.shadowBlur=0;
+// Tail lights
+cx.fillStyle='#f22';cx.shadowColor='#f22';cx.shadowBlur=2;
+cx.fillRect(-13,-5.5,1.5,2);cx.fillRect(-13,3.5,1.5,2);cx.shadowBlur=0;
 // Name + health bar + gun heat always upright
 cx.rotate(-p.angle+camAngle+Math.PI/2);cx.shadowBlur=0;
 cx.font='bold 10px Rajdhani';cx.textAlign='center';cx.fillStyle=p.color;cx.globalAlpha=.9;cx.fillText(p.name,0,-22);
@@ -1827,6 +2024,13 @@ function gameLoop(){
       checkRespawns();updGunHeat();updBullets();regenAINos();spawnObstacles();spawnInfSpectator();checkSpectatorHits();updPolice();
       // Infinite HP regen
       if(GM==='infinite'&&LP&&!LP.dead&&LP._im&&LP._im.hpRegen>0){const maxHp5=100+(LP._im.hpBonus||0);LP.hp=Math.min(maxHp5,LP.hp+LP._im.hpRegen/60)}
+      // Lava grass: damage when off-road
+      if(GM==='infinite'&&LP&&!LP.dead&&LP._im&&LP._im.lavaGrass>0){
+        const tpr=ctp(LP.x,LP.y);const ttp=gtp(tpr);
+        const dToTrack=dst({x:LP.x,y:LP.y},ttp);
+        const roadHalf=(TW*.5)/TS;
+        if(dToTrack>roadHalf){LP.hp-=LP._im.lavaGrass*.5;if(LP.hp<=0)destroyCar(LP)}
+      }
       updLP(LP);if(GM==='solo'||GM==='tt'||GM==='infinite')Object.values(PS).forEach(p=>{if(p.isNpc)updNPC(p)});
       // Record frame
       const fr={};Object.values(PS).forEach(p=>{fr[p.id]={x:p.x,y:p.y,angle:p.angle,speed:p.speed,progress:p.progress,lap:p.lap,coins:p.coins,nosOn:p.nosOn,finished:p.finished,dead:p.dead,hp:p.hp}});
