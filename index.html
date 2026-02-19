@@ -9,7 +9,7 @@
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{width:100%;height:100%;overflow:hidden;background:#0a0a0f;color:#fff;font-family:'Rajdhani',sans-serif;touch-action:none;user-select:none;-webkit-user-select:none}
 .screen{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:100;background:linear-gradient(135deg,#0a0a1a 0%,#1a0a2e 40%,#0a1a2e 70%,#0a0a1a 100%);transition:opacity .4s;overflow-y:auto;padding:20px}
-.screen.hidden{opacity:0;pointer-events:none}
+.screen.hidden{display:none}
 .logo{font-family:'Orbitron',sans-serif;font-size:clamp(28px,6vw,64px);font-weight:900;text-transform:uppercase;letter-spacing:4px;background:linear-gradient(135deg,#ff6b35,#ff3366,#ff6b35);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:8px;animation:lg 2s ease-in-out infinite alternate}
 @keyframes lg{from{filter:drop-shadow(0 0 20px rgba(255,107,53,.3))}to{filter:drop-shadow(0 0 40px rgba(255,51,102,.5))}}
 .subtitle{font-family:'Orbitron',sans-serif;font-size:clamp(10px,2vw,16px);color:#888;letter-spacing:8px;text-transform:uppercase;margin-bottom:40px}
@@ -50,14 +50,14 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0a0a0f;color:#fff;f
 @keyframes wwFlash{from{opacity:1}to{opacity:.4}}
 .mobile-controls{position:absolute;bottom:0;left:0;right:0;display:flex;justify-content:space-between;align-items:flex-end;padding:12px;pointer-events:none;z-index:10}.mobile-controls.hidden{display:none}
 .stick-zone{pointer-events:auto;touch-action:none;width:160px;height:160px;position:relative}
-.ctrl-group-r{display:flex;flex-direction:column;gap:12px;pointer-events:auto;padding-bottom:20px}
+.ctrl-group-r{display:flex;flex-direction:column;gap:12px;pointer-events:auto;padding-bottom:80px}
 .ctrl-btn{width:clamp(56px,14vw,80px);height:clamp(56px,14vw,80px);border-radius:50%;border:2px solid rgba(255,107,53,.5);background:rgba(0,0,0,.6);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;font-size:28px;color:rgba(255,107,53,.8);touch-action:none;cursor:pointer;-webkit-tap-highlight-color:transparent}
 .ctrl-btn:active,.ctrl-btn.active{background:rgba(255,107,53,.3);border-color:#ff6b35}
 .ctrl-btn.gas{border-color:rgba(0,255,100,.5);color:rgba(0,255,100,.8)}.ctrl-btn.gas:active,.ctrl-btn.gas.active{background:rgba(0,255,100,.3);border-color:#0f6}
 .ctrl-btn.brake{border-color:rgba(255,50,50,.5);color:rgba(255,50,50,.8)}.ctrl-btn.brake:active,.ctrl-btn.brake.active{background:rgba(255,50,50,.3);border-color:#f33}
 .ctrl-btn.nos{border-color:rgba(0,180,255,.5);color:rgba(0,180,255,.9);font-family:'Orbitron',sans-serif;font-size:12px;font-weight:700}.ctrl-btn.nos:active,.ctrl-btn.nos.active{background:rgba(0,180,255,.3);border-color:#0bf;box-shadow:0 0 15px rgba(0,180,255,.5)}
 .nos-bar-container{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);z-index:10;pointer-events:none;text-align:center;display:none}
-@media(max-width:600px){.nos-bar-container{bottom:95px}}
+@media(max-width:600px){.nos-bar-container{bottom:12px;left:12px;transform:none}}
 .nos-label{font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:#0bf;letter-spacing:2px;margin-bottom:4px}.nos-label span{color:#fff}
 .nos-bar-bg{width:clamp(140px,30vw,220px);height:10px;background:rgba(255,255,255,.08);border:1px solid rgba(0,180,255,.3);border-radius:5px;overflow:hidden}
 .nos-bar-fill{height:100%;border-radius:5px;background:linear-gradient(90deg,#048,#08f,#0cf);transition:width .05s linear;box-shadow:0 0 8px rgba(0,180,255,.5)}
@@ -68,7 +68,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0a0a0f;color:#fff;f
 .results-title{font-family:'Orbitron',sans-serif;font-size:clamp(24px,5vw,48px);font-weight:900;margin-bottom:24px;background:linear-gradient(135deg,#ffd700,#ff6b35);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
 .results-row{font-family:'Rajdhani',sans-serif;font-size:clamp(16px,3vw,24px);padding:6px 0;color:#ccc}.results-row .pos{color:#ffd700;font-weight:700;margin-right:12px}.results-row .time{color:#0ff;margin-left:12px}
 .results-sub{font-family:'Orbitron',sans-serif;font-size:14px;margin-top:12px}
-.minimap{position:absolute;bottom:100px;right:12px;z-index:10;pointer-events:none}@media(max-width:600px){.minimap{bottom:140px;right:8px}}
+.minimap{position:absolute;bottom:100px;right:12px;z-index:10;pointer-events:none}@media(max-width:600px){.minimap{bottom:12px;right:50%;transform:translateX(50%);opacity:.7}}
 .tt-timer{position:absolute;top:60px;left:50%;transform:translateX(-50%);font-family:'Orbitron',sans-serif;font-size:clamp(16px,3vw,28px);font-weight:700;z-index:10;pointer-events:none;text-align:center}
 .tt-timer .tt-cur{color:#fff}.tt-timer .tt-tgt{color:#888;font-size:.7em}.tt-timer.ahead .tt-cur{color:#22cc55}.tt-timer.behind .tt-cur{color:#ff4444}
 .tt-best{color:#ffd700;font-size:.65em;margin-top:2px}
@@ -78,6 +78,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0a0a0f;color:#fff;f
 <div class="screen" id="menuScreen"><div class="logo">InsaneXtreme</div><div class="subtitle">Racing</div>
 <button class="menu-btn green" onclick="showScreen('soloScreen')">Let's Play</button>
 <button class="menu-btn primary" onclick="showScreen('ttScreen')">Time Trial</button>
+<button class="menu-btn primary" onclick="showScreen('infScreen')">♾ Infinite</button>
 <button class="menu-btn primary" onclick="showScreen('createScreen')">Vs Friend</button>
 <button class="menu-btn secondary" onclick="showScreen('joinScreen')">Join Room</button>
 <button class="menu-btn secondary" onclick="showScreen('settingsScreen')" style="margin-top:12px;border-color:rgba(255,255,255,.2);color:rgba(255,255,255,.6)">⚙ Settings</button></div>
@@ -96,6 +97,15 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0a0a0f;color:#fff;f
 <button id="autoNosBtn" onclick="toggleAutoNos()" style="background:rgba(255,50,50,.2);border:1px solid rgba(255,50,50,.4);color:#f55;font-family:Rajdhani;font-size:14px;padding:4px 16px;border-radius:6px;cursor:pointer">OFF</button>
 </div>
 </div></div>
+
+<div class="screen hidden" id="infScreen"><button class="back-btn" onclick="showScreen('menuScreen')">← BACK</button>
+<div class="logo" style="font-size:clamp(20px,4vw,36px)">♾ Infinite</div><div class="subtitle" style="margin-bottom:16px;font-size:11px">ENDLESS LAPS — BUFF & DEBUFF EACH LAP</div>
+<input class="name-input" id="infName" placeholder="Your Name" maxlength="12" value="Player">
+<div class="color-picker" id="infColors"></div>
+<div id="infSaveInfo" style="font-family:Rajdhani;color:#888;font-size:13px;margin:12px 0;text-align:center"></div>
+<button class="menu-btn green" onclick="startInfinite(false)">New Run</button>
+<button class="menu-btn primary hidden" id="infContinueBtn" onclick="startInfinite(true)">Continue Run</button>
+</div>
 
 <div class="screen hidden" id="ttScreen"><button class="back-btn" onclick="showScreen('menuScreen')">← BACK</button>
 <div class="logo" style="font-size:clamp(20px,4vw,36px)">Time Trial</div><div class="subtitle" style="margin-bottom:16px;font-size:11px">1 LAP — BEAT YOUR BEST</div>
@@ -130,7 +140,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0a0a0f;color:#fff;f
 <div id="joinInfo" style="display:none;text-align:center;margin-top:16px"><div class="info-text">Waiting for host...</div><div class="player-list" id="joinPlayerList"></div></div></div>
 
 <canvas id="gameCanvas"></canvas>
-<div class="hud hidden" id="hud"><div class="hud-box"><div class="hud-label">LAP</div><div class="hud-value" id="hudLap">1/3</div></div><div class="hud-box"><div class="hud-label">COINS</div><div class="hud-coins" id="hudCoins">0/3</div></div><div class="hud-box"><div class="hud-label">POS</div><div class="hud-value" id="hudPos">1st</div></div><div class="hud-box"><div class="hud-label">SPEED</div><div class="hud-speed" id="hudSpeed">0</div></div><button id="pauseBtn" style="background:rgba(0,0,0,.5);border:1px solid rgba(255,107,53,.4);color:#ff6b35;font-family:Orbitron;font-size:11px;padding:6px 12px;cursor:pointer;pointer-events:all" onclick="togglePause()">☰</button></div>
+<div class="hud hidden" id="hud"><div class="hud-box" id="hudLapBox"><div class="hud-label">LAP</div><div class="hud-value" id="hudLap">1/3</div></div><div class="hud-box"><div class="hud-label">COINS</div><div class="hud-coins" id="hudCoins">0/3</div></div><div class="hud-box" id="hudPosBox"><div class="hud-label">POS</div><div class="hud-value" id="hudPos">1st</div></div><div class="hud-box"><div class="hud-label">SPEED</div><div class="hud-speed" id="hudSpeed">0</div></div><button id="pauseBtn" style="background:rgba(0,0,0,.5);border:1px solid rgba(255,107,53,.4);color:#ff6b35;font-family:Orbitron;font-size:11px;padding:6px 12px;cursor:pointer;pointer-events:all" onclick="togglePause()">☰</button></div>
 <div id="pauseMenu" style="display:none;position:absolute;inset:0;z-index:200;background:rgba(0,0,0,.75);display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px"><div style="font-family:Orbitron;font-size:clamp(24px,5vw,40px);font-weight:900;color:#ff6b35;margin-bottom:16px">PAUSED</div><button class="menu-btn primary" onclick="togglePause()">Resume</button><button class="menu-btn secondary" onclick="abortRace()">Abort Race</button>
 <div style="width:220px;margin-top:16px;text-align:left">
 <label style="font-family:Rajdhani;color:#aaa;font-size:13px">🎵 Music <span id="pMusicLbl">30%</span></label>
@@ -141,6 +151,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0a0a0f;color:#fff;f
 <label style="font-family:Rajdhani;color:#aaa;font-size:13px">🚀 Auto NOS</label>
 <button id="pAutoNosBtn" onclick="toggleAutoNos()" style="background:rgba(255,50,50,.2);border:1px solid rgba(255,50,50,.4);color:#f55;font-family:Rajdhani;font-size:13px;padding:3px 12px;border-radius:6px;cursor:pointer">OFF</button>
 </div>
+<div id="pauseInfBuffs" style="display:none;margin-top:12px;max-height:150px;overflow-y:auto"></div>
 </div></div>
 <div class="nos-bar-container" id="nosBar"><div class="nos-label">NOS <span id="nosPct">50%</span></div><div class="nos-bar-bg"><div class="nos-bar-fill" id="nosFill" style="width:50%"></div></div><div class="nos-hint" id="nosHint">SHIFT</div></div>
 <div class="hud-center hidden" id="hudCenter"></div><div class="lap-alert" id="lapAlert"></div><div class="wrong-way" id="wrongWay">⚠ WRONG WAY ⚠</div>
@@ -151,6 +162,21 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0a0a0f;color:#fff;f
 </div>
 <canvas class="minimap" id="minimap" width="120" height="100"></canvas>
 <div class="results-overlay hidden" id="results"><div class="results-title" id="resTitle">Race Complete!</div><div id="resBody"></div><div class="results-sub hidden" id="resSub"></div><div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:20px"><button class="menu-btn primary" id="resBtn1" onclick="backToMenu()">Menu</button><button class="menu-btn green hidden" id="resBtn2">Next</button></div><button class="menu-btn secondary" id="resReplay" style="margin-top:8px" onclick="watchReplay()">🎬 Watch Replay</button></div>
+<div class="results-overlay hidden" id="infOverlay"><div class="results-title">Lap Complete!</div>
+<div id="infLapInfo" style="font-family:Rajdhani;font-size:18px;color:#0ff;margin-bottom:12px"></div>
+<div id="infBuffs" style="font-family:Rajdhani;font-size:13px;color:#aaa;margin-bottom:12px"></div>
+<div style="font-family:Orbitron;font-size:14px;color:#ff6b35;margin-bottom:8px">Choose your fate:</div>
+<div id="infChoiceA" style="cursor:pointer;background:rgba(50,255,50,.1);border:1px solid rgba(50,255,50,.3);border-radius:8px;padding:12px;margin:8px auto;max-width:300px;font-family:Rajdhani" onclick="pickInfBuff(0)"></div>
+<div id="infChoiceB" style="cursor:pointer;background:rgba(255,50,50,.1);border:1px solid rgba(255,50,50,.3);border-radius:8px;padding:12px;margin:8px auto;max-width:300px;font-family:Rajdhani" onclick="pickInfBuff(1)"></div>
+<div id="infChoiceHeal" style="cursor:pointer;background:rgba(50,200,255,.1);border:1px solid rgba(50,200,255,.3);border-radius:8px;padding:12px;margin:8px auto;max-width:300px;font-family:Rajdhani" onclick="pickInfHeal()"><span style="color:#0cf">💚 Heal 50% HP</span><br><span style="color:#888">No buff, debuff, or enemy speed increase</span></div>
+<div style="display:flex;gap:10px;justify-content:center;margin-top:16px"><button class="menu-btn secondary" onclick="saveInfRun();backToMenu()">Save & Quit</button></div>
+</div>
+<div class="results-overlay hidden" id="infGameOver">
+<div class="results-title" style="background:linear-gradient(135deg,#f44,#f80);-webkit-background-clip:text;-webkit-text-fill-color:transparent">💀 RUN OVER 💀</div>
+<div id="infGOInfo" style="font-family:Rajdhani;font-size:18px;color:#aaa;margin-bottom:12px"></div>
+<div id="infGOBuffs" style="font-family:Rajdhani;font-size:13px;color:#666;margin-bottom:16px;max-height:120px;overflow-y:auto"></div>
+<div style="display:flex;gap:10px;justify-content:center"><button class="menu-btn primary" onclick="document.getElementById('infGameOver').classList.add('hidden');backToMenu()">Menu</button><button class="menu-btn green" onclick="document.getElementById('infGameOver').classList.add('hidden');infRun=null;try{localStorage.removeItem('ixr_infRun')}catch(e){};startInfinite(false)">New Run</button></div>
+</div>
 <script>
 // === AUDIO ===
 const AC=window.AudioContext||window.webkitAudioContext;let ax;
@@ -380,15 +406,15 @@ function gta(p){const a=gtp(p),b=gtp((p+.002)%1);return Math.atan2(b.y-a.y,b.x-a
 function ctp(px,py){let bd=1/0,bi=0;for(let i=0;i<ST.length;i++){const d=(ST[i].x-px)**2+(ST[i].y-py)**2;if(d<bd){bd=d;bi=i}}return TD[bi]/TTL}
 
 // === SCREENS ===
-function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classList.add('hidden'));document.getElementById(id).classList.remove('hidden')}
-function setupCP(){['hostColors','joinColors','soloColors','ttColors'].forEach(c=>{const el=document.getElementById(c);if(!el)return;el.innerHTML='';COL.forEach((col,i)=>{const s=document.createElement('div');s.className='color-swatch'+(i===0?' selected':'');s.style.background=col;s.dataset.color=col;s.onclick=()=>{el.querySelectorAll('.color-swatch').forEach(x=>x.classList.remove('selected'));s.classList.add('selected')};el.appendChild(s)})})}
+function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classList.add('hidden'));document.getElementById(id).classList.remove('hidden');if(id==='infScreen')checkInfScreen()}
+function setupCP(){['hostColors','joinColors','soloColors','ttColors','infColors'].forEach(c=>{const el=document.getElementById(c);if(!el)return;el.innerHTML='';COL.forEach((col,i)=>{const s=document.createElement('div');s.className='color-swatch'+(i===0?' selected':'');s.style.background=col;s.dataset.color=col;s.onclick=()=>{el.querySelectorAll('.color-swatch').forEach(x=>x.classList.remove('selected'));s.classList.add('selected')};el.appendChild(s)})})}
 function gsc(c){const s=document.querySelector('#'+c+' .color-swatch.selected');return s?s.dataset.color:COL[0]}
 
 // === LEVELS (infinite, seeded, all procedural) ===
 let cheatSeq=[];
 function lvlCfg(l){
-  // Laps: start 2, +1 every 2 levels, cap 8
-  const laps=Math.min(2+Math.floor(l/2),8);
+  // Laps: start 1, +1 every 2 levels, cap 5
+  const laps=Math.min(1+Math.floor(l/2),5);
   // AI cars: +1 every 5 levels, cap 23
   const nc=Math.min(1+Math.floor(l/5),23);
   // Coins per lap: 3 base scaling up
@@ -397,8 +423,8 @@ function lvlCfg(l){
   const aiNosMax=100+Math.floor(l/10)*10;
   // AI gun shots before overheat: base 12 (100/8=12.5) + 1 per level
   const aiGunShots=12+l;
-  // Obstacles: 1 per level after level 100, cap 100
-  const obstacles=l>=100?Math.min(l-99,100):0;
+  // Obstacles: start at level 10, +1 every 2 levels, cap 30 max on track at once
+  const obstacles=l>=10?Math.min(Math.floor((l-9)/2)+2,30):0;
   return{nc,laps,c,aiNosMax,aiGunShots,obstacles}
 }
 function cheatCheck(num){
@@ -450,7 +476,7 @@ function goToLvl(l){
 function selLvl(l){CLV=l;const c=lvlCfg(l);document.getElementById('levelInfo').innerHTML='Level <span>'+(l+1)+'</span> — '+c.nc+' opponent'+(c.nc>1?'s':'')+' — '+c.laps+' laps'+(c.obstacles?' — '+c.obstacles+' obstacle'+(c.obstacles>1?'s':''):'');
   const start=lvlPage*3;document.querySelectorAll('#levelGrid .level-btn').forEach((b,i)=>{b.classList.remove('sel');if(start+i===l)b.classList.add('sel')})}
 
-function mkP(id,nm,col,npc){return{id,name:nm,color:col,x:0,y:0,angle:0,speed:0,progress:0,lap:0,finished:false,ftime:0,coins:0,nos:50,nosOn:false,isNpc:!!npc,nSpd:0,nNos:0,nOff:0,nAgg:0,spdFluc:0,spdFlucT:0,hp:100,dead:false,respawnAt:0,gunHeat:0,gunCoolAt:0,gunCD:false,lastShot:0,nosMax:100,gunHeatPer:8,staggerUntil:0}}
+function mkP(id,nm,col,npc){return{id,name:nm,color:col,x:0,y:0,angle:0,speed:0,progress:0,lap:0,finished:false,ftime:0,coins:0,nos:50,nosOn:false,isNpc:!!npc,nSpd:0,nNos:0,nOff:0,nAgg:0,spdFluc:0,spdFlucT:0,hp:100,dead:false,respawnAt:0,gunHeat:0,gunCoolAt:0,gunCD:false,lastShot:0,nosMax:100,gunHeatPer:8,staggerUntil:0,graceUntil:0,_lastHitBy:null,_stuckT:0,shotBurst:0}}
 
 // === SOLO ===
 let obstacles=[]; // {x, y, pr}
@@ -463,7 +489,7 @@ function startSolo(){
   for(let i=0;i<cfg.nc;i++){const n=mkP('npc'+i,NPC[i%NPC.length],COL[(i+1)%COL.length],true);
     // AI speed: 10% faster at lvl 0, +~8% every 25 levels, cap 50% faster
     const aiSpdBonus=1.1+Math.min(Math.floor(CLV/25)*0.08,0.4); // 1.1x to 1.5x
-    n.nSpd=PH.ms*(.88+rng()*.2)*aiSpdBonus*1.5625; // +56.25% base speed
+    n.nSpd=Math.min(PH.ms*(.88+rng()*.2)*aiSpdBonus*1.5625, PH.ms*1.33); // cap at 133% player speed
     n.nNos=.008+Math.min(CLV,20)*.002;
     n.nOff=(rng()-.5)*.02;
     n.nAgg=.5+rng()*.5;
@@ -471,18 +497,9 @@ function startSolo(){
     n.nos=Math.min(50,cfg.aiNosMax);
     n.gunHeatPer=Math.max(1,100/(cfg.aiGunShots)); // heat per shot scales with level
     PS[n.id]=n}
-  // Generate obstacles — 90% near edges, 10% center
+  // Obstacles now spawn periodically, not pre-placed
   obstacles=[];
-  if(cfg.obstacles>0){const orng=mkRng(CLV*9999);
-    for(let i=0;i<cfg.obstacles;i++){
-      const pr=orng();const pt=gtp(pr);const a=gta(pr);
-      let offPct;
-      if(orng()<.1){offPct=(orng()-.5)*.3} // 10% center (small offset)
-      else{offPct=(orng()>.5?1:-1)*(.6+orng()*.35)} // 90% near edges (60-95% out)
-      const off=offPct*TW*.45/TS;
-      obstacles.push({x:pt.x+Math.cos(a+Math.PI/2)*off,y:pt.y+Math.sin(a+Math.PI/2)*off,pr})
-    }
-  }
+  obsCfg={max:cfg.obstacles,spawnRate:Math.max(400,2000-CLV*15),lastSpawn:0}; // ms between spawns
   // Generate spectators along trackside
   spectators=[];police=[];policeTimer=0;
   const srng=mkRng(CLV*7777);
@@ -490,7 +507,8 @@ function startSolo(){
   for(let i=0;i<numSpec;i++){
     const pr=srng();const pt=gtp(pr);const a=gta(pr);
     const side=srng()>.5?1:-1;
-    const offDist=(TW*.55+srng()*15)/TS; // just outside track edge
+    const baseOff=CLV<50?TW*.8:Math.max(TW*.55,TW*(.8-CLV*.003)); // further at low level
+    const offDist=(baseOff+srng()*15)/TS;
     const cols=['#ff6','#6ff','#f6f','#6f6','#fa0','#fff','#f66'];
     // Speed and range scale with level
     const wanderBoost=CLV>=100?3:1;
@@ -515,9 +533,9 @@ function startSolo(){
 let spectators=[],police=[],policeTimer=0;
 let arrestedUntil=0,wantedLevel=0; // player wanted stars
 function spawnPoliceFor(target){
-  // Max 3 police per target
+  // Max 1 police per target
   const existing=police.filter(p=>p.targetId===target.id).length;
-  if(existing>=3)return;
+  if(existing>=1)return;
   const pr=(ctp(target.x,target.y)-.1+1)%1;
   const pt=gtp(pr);const a=gta(pr);
   const side=Math.random()>.5?1:-1;
@@ -551,15 +569,18 @@ function updPolice(){
     if(d<.015){
       if(!target.isNpc){
         if(now>arrestedUntil){
-          arrestedUntil=now+5000;
+          // Scale arrest by wanted level: 3s base + 2s per star
+          const arrestTime=3000+wantedLevel*2000;
+          arrestedUntil=now+arrestTime;
           LP.speed=0;
+          addEvent('🚔 '+LP.name+' arrested! ('+wantedLevel+'⭐)','#4488ff');
           wantedLevel=0;
           police.forEach(pc=>{if(pc.targetId===LP.id)pc.caught=true});
         }
       }else{
         target.speed=0;
         target.staggerUntil=Math.max(target.staggerUntil||0,now)+3000;
-        // Clear NPC wanted after arrest
+        addEvent('🚔 '+target.name+' arrested!','#4488ff');
         p.caught=true;
       }
       p.caught=true;
@@ -739,14 +760,22 @@ function coinSetGot(c,pid){c.got[pid]=true}
 function nextCoinIdx(pid){for(let i=0;i<CN.length;i++){if(!coinGotBy(CN[i],pid))return i}return-1}
 
 // === COUNTDOWN ===
+let cdInterval=null,cdRemaining=0,cdLastTick=0;
 function startCD(){GS='countdown';arrestedUntil=0;wantedLevel=0;document.querySelectorAll('.screen').forEach(s=>s.classList.add('hidden'));
 document.getElementById('hud').classList.remove('hidden');document.getElementById('hudCenter').classList.remove('hidden');
-document.getElementById('ttHud').classList.add('hidden'); // always hide TT HUD first
+document.getElementById('ttHud').classList.add('hidden');
 if(isMob()){document.getElementById('mobileCtrl').classList.remove('hidden');mobMult=1.6}else{mobMult=1}
 if(GM==='tt')document.getElementById('ttHud').classList.remove('hidden');
 const sp=gtp(LP.progress||0);LP.x=sp.x;LP.y=sp.y;LP.angle=gta(LP.progress||0);LP.speed=0;LP.lap=0;LP.coins=0;LP.finished=false;LP.nos=50;LP.nosOn=false;
-CDV=3;document.getElementById('hudCenter').textContent='3';document.getElementById('hudCenter').style.color='#ff3535';snd('cd');
-const ci=setInterval(()=>{CDV--;if(CDV>0){document.getElementById('hudCenter').textContent=CDV;snd('cd')}else if(CDV===0){document.getElementById('hudCenter').textContent='GO!';document.getElementById('hudCenter').style.color='#35ff6b';snd('go')}else{clearInterval(ci);document.getElementById('hudCenter').classList.add('hidden');GS='racing';RST=performance.now();startRaceRecording()}},1000)}
+CDV=3;cdRemaining=1000;cdLastTick=performance.now();
+document.getElementById('hudCenter').textContent='3';document.getElementById('hudCenter').style.color='#ff3535';snd('cd');
+if(cdInterval)clearInterval(cdInterval);
+cdInterval=setInterval(()=>{
+  if(GS==='paused')return; // skip ticks while paused
+  CDV--;if(CDV>0){document.getElementById('hudCenter').textContent=CDV;snd('cd')}
+  else if(CDV===0){document.getElementById('hudCenter').textContent='GO!';document.getElementById('hudCenter').style.color='#35ff6b';snd('go')}
+  else{clearInterval(cdInterval);cdInterval=null;document.getElementById('hudCenter').classList.add('hidden');GS='racing';RST=performance.now();startRaceRecording()}
+},1000)}
 
 // === INPUT ===
 const K={};window.addEventListener('keydown',e=>{K[e.code]=true;ea()});window.addEventListener('keyup',e=>{K[e.code]=false});
@@ -831,19 +860,49 @@ function updBullets(){
   const now=performance.now();
   bullets=bullets.filter(b=>{
     b.x+=b.vx;b.y+=b.vy;
-    if(now-b.born>800)return false; // bullets live 800ms
+    if(now-b.born>800*(PS[b.owner]&&PS[b.owner]._im?PS[b.owner]._im.bulletLife:1))return false;
     // Hit detection
     let hit=false;
     Object.values(PS).forEach(p=>{
       if(p.id===b.owner||p.dead||p.finished)return;
+      if(p.graceUntil&&performance.now()<p.graceUntil)return; // invulnerable
       if(dst({x:b.x,y:b.y},{x:p.x,y:p.y})<.012){
-        p.hp-=8;
-        // Stack stagger: each hit adds 0.125s of 25% slow
+        // Apply damage mods: shooter's dmgOut * target's dmgIn
+        const shooter=PS[b.owner];
+        const dmgOut=shooter&&shooter._im?shooter._im.dmgOut:1;
+        const dmgIn=p._im?p._im.dmgIn:1;
+        p.hp-=Math.round(8*dmgOut*dmgIn);p._lastHitBy=b.owner;
         p.staggerUntil=Math.max(p.staggerUntil||0,performance.now())+125;
-        if(p.hp<=0)destroyCar(p);
+        // Lifesteal: shooter heals on hit
+        if(GM==='infinite'&&shooter){
+          const sim=shooter._im||getInfMods();
+          if(sim.lifeSteal>0&&!shooter.dead){const maxHp2=100+(sim.hpBonus||0);shooter.hp=Math.min(maxHp2,shooter.hp+sim.lifeSteal)}
+          // Enemy lifesteal: target heals when hitting player
+          const pim=p._im||{};
+          if(pim.enemyLifeSteal>0&&!shooter.isNpc&&p.isNpc){const emx=100;p.hp=Math.min(emx,p.hp+pim.enemyLifeSteal)}
+        }
+        if(p.hp<=0){
+          // Kill heal
+          if(GM==='infinite'&&shooter&&!shooter.dead){
+            const sim2=shooter._im||getInfMods();
+            if(sim2.killHeal>0){const maxHp3=100+(sim2.hpBonus||0);shooter.hp=Math.min(maxHp3,shooter.hp+sim2.killHeal)}
+          }
+          destroyCar(p);
+        }
         hit=true;
       }
     });
+    // Bullet vs obstacle — single destroy only, no chain
+    if(!hit&&obstacles.length>0){
+      for(let i=obstacles.length-1;i>=0;i--){
+        if(obstacles[i].graceEnd&&performance.now()<obstacles[i].graceEnd)continue;
+        if(dst({x:b.x,y:b.y},{x:obstacles[i].x,y:obstacles[i].y})<.015){
+          explosions.push({x:obstacles[i].x,y:obstacles[i].y,t:performance.now(),color:'#ff8800'});
+          obstacles.splice(i,1);
+          hit=true;break;
+        }
+      }
+    }
     return!hit;
   });
 }
@@ -852,9 +911,9 @@ function updGunHeat(){
   Object.values(PS).forEach(p=>{
     if(p.gunCD){if(now>=p.gunCoolAt){p.gunCD=false;p.gunHeat=0;p.shotBurst=0}}
     else if(p.gunHeat>0){
-      // Faster cooling at low heat: 0.15 base, up to 0.4 below 30% heat
       const coolRate=p.gunHeat<30?.4:p.gunHeat<60?.25:.15;
-      p.gunHeat=Math.max(0,p.gunHeat-coolRate);
+      const coolMult=p._im?p._im.gunCool:1;
+      p.gunHeat=Math.max(0,p.gunHeat-coolRate*coolMult);
       // Reset burst counter if not shooting for 500ms
       if(now-p.lastShot>500)p.shotBurst=0;
     }
@@ -887,20 +946,20 @@ function updLP(p){
     if(i.l)p.angle-=PH.ts*(.5+Math.abs(p.speed)*.1);if(i.r)p.angle+=PH.ts*(.5+Math.abs(p.speed)*.1);
   }
   const wn=p.nosOn;const nosInput=i.n||(autoNos&&p.nos>0&&p.speed>.2);p.nosOn=nosInput&&p.nos>0&&p.speed>0;if(p.nosOn&&!wn)snd('nos');
-  if(p.nosOn){p.nos=Math.max(0,p.nos-PH.nd);if(p.nos<=0)p.nosOn=false;NLT--;if(NLT<=0){snd('nosl');NLT=4}}
+  // Get infinite mode modifiers (all default to 1 / 0 if not in infinite)
+  const im=GM==='infinite'?getInfMods():{nosDrain:1,nosRegen:1,dmgOut:1,dmgIn:1,spdMult:1,brakeMult:1,gunCool:1,bulletLife:1,accelMult:1,nosPower:1,nosCap:1,hpBonus:0};
+  if(p.nosOn){p.nos=Math.max(0,p.nos-PH.nd*im.nosDrain);if(p.nos<=0)p.nosOn=false;NLT--;if(NLT<=0){snd('nosl');NLT=4}}
   p.spdFlucT=(p.spdFlucT||0)+.015;
   const spdFluc=1+Math.sin(p.spdFlucT)*.02;
-  const ms=(p.nosOn?PH.ns:PH.ms)*spdFluc;
-  // Slower acceleration: ~0.006 base (was 0.012) — takes ~2-3s longer to reach max
-  // ~2 seconds to reach max speed (0.75 / 120 frames ≈ 0.00625)
-  const pAc=.00625;
-  if(i.g){if(p.speed<0)p.speed=Math.min(p.speed+PH.br*1.5,0);else p.speed=Math.min(p.speed+pAc*(p.nosOn?2.5:1),ms)}
-  else if(i.b){if(p.speed>.01)p.speed=Math.max(p.speed-PH.br,0);else p.speed=Math.max(p.speed-pAc*.8,-PH.rv)}
+  const ms=(p.nosOn?PH.ns*im.nosPower:PH.ms)*spdFluc*im.spdMult;
+  const pAc=.00625*im.accelMult;
+  if(i.g){if(p.speed<0)p.speed=Math.min(p.speed+PH.br*im.brakeMult*1.5,0);else p.speed=Math.min(p.speed+pAc*(p.nosOn?2.5:1),ms)}
+  else if(i.b){if(p.speed>.01)p.speed=Math.max(p.speed-PH.br*im.brakeMult,0);else p.speed=Math.max(p.speed-pAc*.8,-PH.rv)}
   else{if(Math.abs(p.speed)<.005)p.speed=0;else p.speed*=(1-PH.fr)}
   // Speed loss when actively turning at high speed
   const turning=isMob()?(Math.abs(stickX)>.3):(i.l||i.r);
   if(turning&&p.speed>.3){p.speed*=.997} // very gentle drag when steering
-  moveP(p);tickEng(p.speed);
+  moveP(p);tickEng(p.speed);p._im=im;
   if(i.fire)shoot(p);
   if(GM==='friend')bm('upd',{x:p.x,y:p.y,angle:p.angle,speed:p.speed,progress:p.progress,lap:p.lap,coins:p.coins,finished:p.finished,nosOn:p.nosOn})
 }
@@ -926,13 +985,16 @@ function moveP(p){
   }else if(!p.isNpc&&isWW){isWW=false;document.getElementById('wrongWay').classList.remove('show')}
   if(op>.9&&np<.1&&p.speed>0){
     const nd=CPL[Math.min(p.lap,CPL.length-1)];
-    if(p.coins<nd){
-      // Not enough coins — let them cross but don't advance lap
-      if(!p.isNpc)showLA('COLLECT ALL COINS! '+p.coins+'/'+nd);
-      // Don't block, don't advance, don't regen coins
+    if(!p.isNpc&&p.coins<nd){
+      // Not enough coins — player can't advance
+      showLA('COLLECT ALL COINS! '+p.coins+'/'+nd);
     }else{
       p.lap++;p.coins=0;
-      if(p.lap>=TL){p.finished=true;p.ftime=performance.now()-RST;if(!p.isNpc)snd('finish');if(GM==='friend')bm('fin',{t:p.ftime});chkEnd()}
+      if(GM==='infinite'&&!p.isNpc){
+        // Pause and show buff choice
+        GS='paused';showInfLapChoice();
+      }
+      else if(p.lap>=TL){p.finished=true;p.ftime=performance.now()-RST;if(!p.isNpc)snd('finish');if(GM==='friend')bm('fin',{t:p.ftime});chkEnd()}
       else{if(!p.isNpc){snd('lap');showLA('LAP '+(p.lap+1)+'/'+TL)}
         CN.forEach(c=>delete c.got[p.id]);
         if(p.id===LP.id){CN=genCoins(p.lap);if(GM==='friend')bm('start',{cn:CN.map(c=>({x:c.x,y:c.y,pr:c.pr,boost:c.boost,got:{},id:c.id})),tl:TL,cpl:CPL})}}
@@ -942,9 +1004,16 @@ function moveP(p){
   // Car-to-car collision (disabled for first 5 seconds)
   const raceTime=(performance.now()-RST)/1000;
   if(raceTime>5&&!p.dead){
-    const colR=isMob()?.016:.012;
+    const now4=performance.now();
+    const inRespawnGrace=p.graceUntil&&now4<p.graceUntil;
+    if(!inRespawnGrace){
+    const baseColR=isMob()?.016:.012;
     Object.values(PS).forEach(o=>{
       if(o.id===p.id||o.finished||o.dead)return;
+      // Scale collision radius by car sizes
+      const pSize=GM==='infinite'?(p.isNpc?(getInfMods().enemySize||1):(LP._im?LP._im.playerSize:1)):1;
+      const oSize=GM==='infinite'?(o.isNpc?(getInfMods().enemySize||1):(LP._im?LP._im.playerSize:1)):1;
+      const colR=baseColR*(pSize+oSize)/2;
       const d=dst({x:p.x,y:p.y},{x:o.x,y:o.y});
       if(d<colR&&d>0){
         const push=nrm({x:p.x-o.x,y:p.y-o.y});
@@ -986,25 +1055,31 @@ function moveP(p){
         if(o.hp<=0&&!o.dead)destroyCar(o);
       }
     });
-  }
+  }} // close inRespawnGrace and raceTime>5
   // Coin collection - sequential order, per player
   const nextIdx=nextCoinIdx(p.id);
   const coinR=isMob()?.06:.045;
   if(nextIdx>=0){const c=CN[nextIdx];if(!coinGotBy(c,p.id)&&dst({x:p.x,y:p.y},{x:c.x,y:c.y})<coinR){coinSetGot(c,p.id);p.coins++;
     if(p.isNpc){/* AI gets NOS from passive regen only */}
-    else if(c.boost){p.nos=Math.min(100,p.nos+100);snd('boost')}
-    else{p.nos=Math.min(100,p.nos+20);snd('coin')}}}
+    else{const nosCap=Math.round(100*(p._im?p._im.nosCap:1));
+      if(c.boost){p.nos=Math.min(nosCap,p.nos+nosCap);snd('boost')}
+      else{p.nos=Math.min(nosCap,p.nos+20);snd('coin')}
+      // Coin heal buff
+      if(GM==='infinite'&&p._im&&p._im.coinHeal>0){const maxHp4=100+(p._im.hpBonus||0);p.hp=Math.min(maxHp4,p.hp+p._im.coinHeal)}
+    }}}
   // Obstacle collision — destroy obstacle on hit + chain destroy nearby
   if(obstacles.length>0&&!p.dead){
-    const obR=isMob()?.018:.012; // bigger hitbox on mobile
+    const obR=isMob()?.018:.012;
+    const now5=performance.now();
     for(let i=obstacles.length-1;i>=0;i--){
       const ob=obstacles[i];
+      if(ob.graceEnd&&now5<ob.graceEnd)continue; // still in grace period
       if(dst({x:p.x,y:p.y},{x:ob.x,y:ob.y})<obR){
         p.speed*=.4;p.hp-=15;
         if(!p.isNpc)snd('wall');
         if(p.hp<=0)destroyCar(p);
         // Destroy this obstacle + any within small chain radius
-        const chainR=.025;
+        const chainR=.012;
         obstacles=obstacles.filter(o2=>{
           if(o2===ob)return false;
           if(dst({x:ob.x,y:ob.y},{x:o2.x,y:o2.y})<chainR)return false;
@@ -1019,22 +1094,69 @@ function moveP(p){
 }
 
 let explosions=[]; // {x, y, t, color}
+let eventLog=[]; // {text, time, color}
+function addEvent(text,color){eventLog.push({text,time:performance.now(),color:color||'#fff'});if(eventLog.length>6)eventLog.shift()}
+function drawEventLog(){
+  const now=performance.now();
+  eventLog=eventLog.filter(e=>now-e.time<5000);
+  cx.save();cx.textAlign='right';cx.font='bold 11px Rajdhani';
+  eventLog.forEach((e,i)=>{
+    const age=(now-e.time)/5000;
+    cx.globalAlpha=1-age;
+    cx.fillStyle='rgba(0,0,0,.5)';
+    const y=80+i*16;
+    cx.fillRect(SW-210,y-10,200,15);
+    cx.fillStyle=e.color;
+    cx.fillText(e.text,SW-14,y);
+  });
+  cx.restore();
+}
 function destroyCar(p){
   if(p.dead||p.finished)return;
   p.dead=true;p.speed=0;
-  p.respawnAt=performance.now()+1000;
   explosions.push({x:p.x,y:p.y,t:performance.now(),color:p.color});
   snd('explode');
+  // Event log
+  if(p._lastHitBy){
+    const attacker=PS[p._lastHitBy];
+    const aName=attacker?attacker.name:'???';
+    addEvent(aName+' 💥 '+p.name,'#ff4444');
+  }else{addEvent(p.name+' destroyed','#ff8800')}
+  // Infinite mode: player death = game over
+  if(GM==='infinite'&&p.id===LP.id){
+    p.finished=true;p.ftime=performance.now()-RST;
+    setTimeout(()=>showInfGameOver(),1500);
+    return;
+  }
+  p.respawnAt=performance.now()+1000;
 }
 function respawnCar(p){
   p.dead=false;p.hp=100;p.speed=0;
-  // Respawn in middle of road at current progress
+  p.graceUntil=performance.now()+5000; // 5s invulnerability
   const pt=gtp(p.progress);
   p.x=pt.x;p.y=pt.y;p.angle=gta(p.progress);
 }
 function checkRespawns(){
   const now=performance.now();
   Object.values(PS).forEach(p=>{if(p.dead&&now>=p.respawnAt)respawnCar(p)});
+}
+let obsCfg={max:0,spawnRate:3000,lastSpawn:0};
+function spawnObstacles(){
+  if(obsCfg.max<=0||GS!=='racing')return;
+  const now=performance.now();
+  if(now-obsCfg.lastSpawn<obsCfg.spawnRate)return;
+  if(obstacles.length>=obsCfg.max)return;
+  obsCfg.lastSpawn=now;
+  // Spawn one obstacle at random track position, avoiding start line area
+  let pr;
+  do{pr=Math.random()}while(pr<.08||pr>.92); // keep start area clear
+  const pt=gtp(pr);const a=gta(pr);
+  let offPct;
+  if(Math.random()<.1){offPct=(Math.random()-.5)*.3}
+  else{offPct=(Math.random()>.5?1:-1)*(.6+Math.random()*.35)}
+  const off=offPct*TW*.45/TS;
+  const graceDur=1000+Math.random()*2000; // 1-3 seconds
+  obstacles.push({x:pt.x+Math.cos(a+Math.PI/2)*off,y:pt.y+Math.sin(a+Math.PI/2)*off,pr,spawnAt:performance.now(),graceEnd:performance.now()+graceDur,graceDur});
 }
 function regenAINos(){
   // AI passive NOS regen: 2% base + 1% per 10 levels, cap 100%/sec
@@ -1049,6 +1171,10 @@ function regenAINos(){
 
 // === NPC AI ===
 function updNPC(n){if(n.finished||n.dead||GS!=='racing')return;
+// Stuck detection: if barely moving for 60 frames, teleport forward
+n._stuckT=(n._stuckT||0);
+if(n.speed<.05)n._stuckT++;else n._stuckT=0;
+if(n._stuckT>60){n._stuckT=0;n.progress=(n.progress+.02)%1;const rp=gtp(n.progress);n.x=rp.x;n.y=rp.y;n.angle=gta(n.progress);n.speed=n.nSpd*.5}
 const laD=.025+n.nAgg*.02;
 const la=(n.progress+laD)%1;
 const tg=gtp(la);
@@ -1110,7 +1236,7 @@ if(!n.nosOn){
   else if(hasReserve&&(onStraight||nearPlayer)&&Math.random()<n.nNos*n.nAgg){n.nosOn=true}
   else if(inReserve&&opportune&&Math.random()<n.nNos*n.nAgg*1.5){n.nosOn=true}
 }
-if(n.nosOn){n.nos=Math.max(0,n.nos-PH.nd);n.speed=Math.min(n.speed+PH.ac*2,PH.ns);
+if(n.nosOn){n.nos=Math.max(0,n.nos-PH.nd);n.speed=Math.min(n.speed+PH.ac,PH.ms*1.1); // AI NOS: half boost, cap at 110% base
   if(n.nos<=0)n.nosOn=false;
   else if(n.nos<=halfNos&&!needsRecovery&&!opportune)n.nosOn=false;
 }
@@ -1133,6 +1259,186 @@ function showLA(t){const e=document.getElementById('lapAlert');e.textContent=t;e
 // === TIME TRIAL (seed-based, 1 lap) ===
 function seedToNum(s){let h=0;s=String(s);for(let i=0;i<s.length;i++){h=((h<<5)-h)+s.charCodeAt(i);h|=0}return Math.abs(h)||1}
 function updTTSeed(){const raw=document.getElementById('ttSeed').value.trim();ttSeed=raw||'1';const num=seedToNum(ttSeed);const box=document.getElementById('ttHSBox');const hs=ttHighScores[ttSeed];if(hs){box.innerHTML='<span style="color:#ffd700">🏆 Best: '+hs.toFixed(2)+'s</span> <span style="color:#555">Seed: '+ttSeed+'</span>'}else{box.innerHTML='<span style="color:#555">No record for seed "'+ttSeed+'"</span>'}}
+// === INFINITE MODE ===
+const INF_BUFFS=[
+  {pos:'🚀 NOS lasts 50% longer',neg:'NOS regens 50% slower',posK:'nosDrain',posV:.5,negK:'nosRegen',negV:.5},
+  {pos:'💪 Deal 50% more damage',neg:'Take 25% more damage',posK:'dmgOut',posV:1.5,negK:'dmgIn',negV:1.25},
+  {pos:'⚡ 30% faster top speed',neg:'Brake 30% weaker',posK:'spdMult',posV:1.3,negK:'brakeMult',negV:.7},
+  {pos:'🛡 Take 30% less damage',neg:'Deal 30% less damage',posK:'dmgIn',posV:.7,negK:'dmgOut',negV:.7},
+  {pos:'🎯 Gun cools 40% faster',neg:'Bullets live 30% shorter',posK:'gunCool',posV:1.4,negK:'bulletLife',negV:.7},
+  {pos:'💨 Accelerate 40% faster',neg:'Max speed -10%',posK:'accelMult',posV:1.4,negK:'spdMult',negV:.9},
+  {pos:'🔥 NOS 30% more powerful',neg:'NOS capacity -25%',posK:'nosPower',posV:1.3,negK:'nosCap',negV:.75},
+  {pos:'❤️ +50 max HP',neg:'Speed -15%',posK:'hpBonus',posV:50,negK:'spdMult',negV:.85},
+  {pos:'🚗 +1 Enemy Car',neg:'Track gets busier!',posK:'addCar',posV:1,negK:'none',negV:1},
+  {pos:'🩸 Heal 2 HP per hit dealt',neg:'Enemies heal 1 HP per hit on you',posK:'lifeSteal',posV:2,negK:'enemyLifeSteal',negV:1},
+  {pos:'💉 Regen 1 HP/sec',neg:'Max HP -25',posK:'hpRegen',posV:1,negK:'hpBonus',negV:-25},
+  {pos:'🧲 Heal 15 HP per coin',neg:'Take 40% more damage',posK:'coinHeal',posV:15,negK:'dmgIn',negV:1.4},
+  {pos:'💀 Kills heal 30 HP',neg:'Take 50% more damage',posK:'killHeal',posV:30,negK:'dmgIn',negV:1.5},
+  {pos:'🔬 Player car 20% smaller',neg:'Enemy cars 20% bigger',posK:'playerSize',posV:.8,negK:'enemySize',negV:1.2},
+  {pos:'🔎 Enemy cars 25% bigger',neg:'Player car 15% bigger',posK:'enemySize',posV:1.25,negK:'playerSize',negV:1.15},
+];
+let infRun=null; // {lap, seed, buffs:[{posK,posV,negK,negV}], mods:{}}
+let infChoices=[];
+function getInfMods(){
+  const m={nosDrain:1,nosRegen:1,dmgOut:1,dmgIn:1,spdMult:1,brakeMult:1,gunCool:1,bulletLife:1,accelMult:1,nosPower:1,nosCap:1,hpBonus:0,lifeSteal:0,enemyLifeSteal:0,hpRegen:0,coinHeal:0,killHeal:0,playerSize:1,enemySize:1,enemySpdMult:1};
+  if(!infRun)return m;
+  infRun.buffs.forEach(b=>{
+    if(b.posK==='addCar'||b.posK==='none'){}
+    else if(b.posK==='hpBonus'||b.posK==='lifeSteal'||b.posK==='hpRegen'||b.posK==='coinHeal'||b.posK==='killHeal')m[b.posK]+=b.posV;
+    else if(b.posK==='enemyLifeSteal')m.enemyLifeSteal+=b.posV;
+    else m[b.posK]=(m[b.posK]||1)*b.posV;
+    if(b.negK==='addCar'||b.negK==='none'){}
+    else if(b.negK==='hpBonus'||b.negK==='lifeSteal'||b.negK==='hpRegen'||b.negK==='coinHeal'||b.negK==='killHeal')m[b.negK]+=b.negV;
+    else if(b.negK==='enemyLifeSteal')m.enemyLifeSteal+=b.negV;
+    else m[b.negK]=(m[b.negK]||1)*b.negV;
+  });
+  return m;
+}
+function startInfinite(cont){
+  ea();GM='infinite';
+  if(cont&&infRun){/* continue existing */}
+  else{infRun={lap:0,seed:Math.floor(Math.random()*99999),buffs:[],mods:{}};}
+  const nm=document.getElementById('infName').value.trim()||'Player';
+  const col=gsc('infColors');
+  const cfg=lvlCfg(10+infRun.lap*5); // scales like level progression
+  CLV=10+infRun.lap*5;
+  setTrack(genTrackFromSeed(infRun.seed+infRun.lap));
+  TL=99999; // infinite laps
+  CPL=[3,5,7];
+  LP=mkP('local',nm,col);PS={[LP.id]:LP};
+  const rng=mkRng((infRun.seed+infRun.lap)*31337);
+  for(let i=0;i<cfg.nc;i++){const n=mkP('npc'+i,NPC[i%NPC.length],COL[(i+1)%COL.length],true);
+    const aiSpdBonus=1.1+Math.min(Math.floor(CLV/25)*0.08,0.4);
+    n.nSpd=Math.min(PH.ms*(.88+rng()*.2)*aiSpdBonus*1.5625,PH.ms*1.33);
+    n.nNos=.008+Math.min(CLV,20)*.002;n.nOff=(rng()-.5)*.02;n.nAgg=.5+rng()*.5;
+    n.nosMax=cfg.aiNosMax;n.nos=Math.min(50,cfg.aiNosMax);
+    n.gunHeatPer=Math.max(1,100/(cfg.aiGunShots));PS[n.id]=n}
+  // Apply accumulated enemy speed boosts from saved buffs
+  if(infRun.buffs.length>0){
+    let totalBoost=1;
+    infRun.buffs.forEach(b=>{if(b.enemySpdBoost)totalBoost*=1+b.enemySpdBoost/100});
+    Object.values(PS).forEach(p=>{if(p.isNpc)p.nSpd=Math.min(p.nSpd*totalBoost,PH.ms*2.5)});
+  }
+  obstacles=[];
+  obsCfg={max:0,spawnRate:9999,lastSpawn:0}; // no obstacles in infinite
+  spectators=[];police=[];
+  const srng=mkRng(CLV*7777);const numSpec=30+Math.floor(srng()*20);
+  for(let i=0;i<numSpec;i++){const pr=srng();const pt=gtp(pr);const a=gta(pr);
+    const side=srng()>.5?1:-1;const baseOff=TW*.8;const offDist=(baseOff+srng()*15)/TS;
+    const cols=['#ff6','#6ff','#f6f','#6f6','#fa0','#fff','#f66'];
+    spectators.push({x:pt.x+Math.cos(a+Math.PI/2)*side*offDist,y:pt.y+Math.sin(a+Math.PI/2)*side*offDist,
+      homeX:pt.x+Math.cos(a+Math.PI/2)*side*offDist,homeY:pt.y+Math.sin(a+Math.PI/2)*side*offDist,
+      color:cols[Math.floor(srng()*cols.length)],alive:true,wAngle:srng()*Math.PI*2,wTimer:srng()*200,
+      wSpd:.000015+srng()*.00002,homeRange:.025,taunting:false,tauntTimer:0})}
+  // Apply mods
+  const m=getInfMods();
+  LP.hp=100+m.hpBonus;
+  posAll();CN=genCoins(0);startCD();
+}
+function showInfLapChoice(){
+  document.getElementById('infOverlay').classList.remove('hidden');
+  const maxHp=100+(getInfMods().hpBonus||0);
+  document.getElementById('infLapInfo').innerHTML='Lap '+(infRun.lap+1)+' complete! &nbsp; <span style="color:'+(LP.hp<maxHp*.3?'#f44':LP.hp<maxHp*.6?'#fa0':'#5f5')+'">❤️ '+Math.round(LP.hp)+'/'+Math.round(maxHp)+' HP</span>';
+  // Show current buffs
+  const m=getInfMods();
+  let buffStr='';
+  infRun.buffs.forEach(b=>{buffStr+='<div>'+b.pos+' / '+b.neg+'</div>'});
+  document.getElementById('infBuffs').innerHTML=buffStr||'No buffs yet';
+  // Pick 2 random choices, each with a random enemy speed boost
+  const shuffled=[...INF_BUFFS].sort(()=>Math.random()-.5);
+  infChoices=[
+    {...shuffled[0],enemySpdBoost:Math.round(5+Math.random()*15)},
+    {...shuffled[1],enemySpdBoost:Math.round(5+Math.random()*15)}
+  ];
+  infHealSpdBoost=Math.round(5+Math.random()*15);
+  document.getElementById('infChoiceA').innerHTML='<span style="color:#5f5">'+infChoices[0].pos+'</span><br><span style="color:#f55">'+infChoices[0].neg+'</span><br><span style="color:#f88;font-size:12px">⚠ Enemies +'+infChoices[0].enemySpdBoost+'% speed</span>';
+  document.getElementById('infChoiceB').innerHTML='<span style="color:#5f5">'+infChoices[1].pos+'</span><br><span style="color:#f55">'+infChoices[1].neg+'</span><br><span style="color:#f88;font-size:12px">⚠ Enemies +'+infChoices[1].enemySpdBoost+'% speed</span>';
+  document.getElementById('infChoiceHeal').innerHTML='<span style="color:#0cf">💚 Heal 50% HP</span><br><span style="color:#888">No buff or debuff</span><br><span style="color:#f88;font-size:12px">⚠ Enemies +'+infHealSpdBoost+'% speed</span>';
+}
+function pickInfBuff(idx){
+  const choice=infChoices[idx];
+  const eSpdBoost=choice.enemySpdBoost||10;
+  infRun.buffs.push({posK:choice.posK,posV:choice.posV,negK:choice.negK,negV:choice.negV,pos:choice.pos,neg:choice.neg,enemySpdBoost:eSpdBoost});
+  infRun.lap++;
+  document.getElementById('infOverlay').classList.add('hidden');
+  // Apply enemy speed boost to all current NPCs
+  const boostMult=1+eSpdBoost/100;
+  Object.values(PS).forEach(p=>{if(p.isNpc)p.nSpd=Math.min(p.nSpd*boostMult,PH.ms*2.5)});
+  infRun.lap++;
+  document.getElementById('infOverlay').classList.add('hidden');
+  // Handle +1 Car buff
+  if(choice.posK==='addCar'){
+    const npcCount=Object.values(PS).filter(p=>p.isNpc).length;
+    const i=npcCount;
+    const n=mkP('npc_inf'+Date.now(),NPC[i%NPC.length],COL[(i+1)%COL.length],true);
+    const rng=mkRng(Date.now());
+    n.nSpd=Math.min(PH.ms*(.88+rng()*.2)*1.2,PH.ms*1.33);
+    n.nNos=.01;n.nOff=(rng()-.5)*.02;n.nAgg=.5+rng()*.5;
+    n.nosMax=100;n.nos=50;n.gunHeatPer=5;
+    // Place behind player
+    const pr=(LP.progress-.1+1)%1;const pt=gtp(pr);
+    n.x=pt.x;n.y=pt.y;n.angle=gta(pr);n.progress=pr;n.lap=LP.lap;
+    n.graceUntil=performance.now()+3000;
+    PS[n.id]=n;
+    addEvent('🚗 +1 Car: '+n.name,'#ff6b35');
+  }
+  // Apply mods and continue
+  const m=getInfMods();
+  LP.hp=Math.min(LP.hp,100+m.hpBonus);
+  // Regen coins for next lap
+  CN=genCoins(LP.lap);CN.forEach(c=>delete c.got[LP.id]);
+  LP.coins=0;
+  GS='racing';
+}
+function saveInfRun(){
+  try{localStorage.setItem('ixr_infRun',JSON.stringify(infRun))}catch(e){}
+}
+function loadInfRun(){
+  try{const d=localStorage.getItem('ixr_infRun');if(d){infRun=JSON.parse(d);return true}}catch(e){}return false;
+}
+function checkInfScreen(){
+  const has=loadInfRun();
+  const btn=document.getElementById('infContinueBtn');
+  const info=document.getElementById('infSaveInfo');
+  btn.classList.remove('hidden');
+  if(has&&infRun&&infRun.lap>0){
+    btn.style.opacity='1';btn.style.pointerEvents='auto';
+    btn.textContent='Continue Run (Lap '+(infRun.lap+1)+')';
+    info.textContent='Saved: '+infRun.buffs.length+' buffs active';
+  }else{
+    btn.style.opacity='.3';btn.style.pointerEvents='none';
+    btn.textContent='Continue Run';
+    info.textContent='No saved run';
+  }
+}
+
+let infHealSpdBoost=10;
+function pickInfHeal(){
+  const m=getInfMods();
+  const maxHp=100+m.hpBonus;
+  LP.hp=Math.min(maxHp,LP.hp+maxHp*.5);
+  // Apply enemy speed boost
+  const boostMult=1+infHealSpdBoost/100;
+  Object.values(PS).forEach(p=>{if(p.isNpc)p.nSpd=Math.min(p.nSpd*boostMult,PH.ms*2.5)});
+  infRun.buffs.push({posK:'none',posV:0,negK:'none',negV:0,pos:'💚 Heal 50% HP',neg:'No buff or debuff',enemySpdBoost:infHealSpdBoost});
+  infRun.lap++;
+  document.getElementById('infOverlay').classList.add('hidden');
+  CN=genCoins(LP.lap);CN.forEach(c=>delete c.got[LP.id]);
+  LP.coins=0;
+  GS='racing';
+  addEvent('💚 Healed to '+Math.round(LP.hp)+' HP','#22cc55');
+}
+function showInfGameOver(){
+  GS='finished';
+  // Clear saved run
+  try{localStorage.removeItem('ixr_infRun')}catch(e){}
+  document.getElementById('infGameOver').classList.remove('hidden');
+  document.getElementById('infGOInfo').innerHTML='Survived <span style="color:#ff6b35">'+(infRun.lap)+' laps</span> with <span style="color:#0ff">'+infRun.buffs.length+' buffs</span>';
+  let buffStr='';
+  infRun.buffs.forEach(b=>{buffStr+='<div style="padding:2px 0"><span style="color:#5f5">'+b.pos+'</span> / <span style="color:#f55">'+b.neg+'</span></div>'});
+  document.getElementById('infGOBuffs').innerHTML=buffStr||'No buffs collected';
+}
+
 function startTT(){
   ea();GM='tt';const raw=document.getElementById('ttSeed').value.trim()||'1';ttSeed=raw;
   const num=seedToNum(ttSeed);
@@ -1151,10 +1457,21 @@ function showRes(){
   const sub=document.getElementById('resSub'),b1=document.getElementById('resBtn1'),b2=document.getElementById('resBtn2');
   b1.classList.remove('hidden');b2.classList.remove('hidden');sub.classList.remove('hidden');
   if(GM==='solo'){const pp=sorted.findIndex(p=>p.id===LP.id);
-    if(pp===0&&LP.finished){sub.textContent='🏆 LEVEL COMPLETE!';sub.style.color='#22cc55';if(CLV>=MLV)MLV=CLV+1;saveProgress();
+    const winnerTime=sorted[0].finished?sorted[0].ftime:Infinity;
+    const myTime=LP.finished?LP.ftime:Infinity;
+    const diff=(myTime-winnerTime)/1000;
+    let stars=0;
+    if(LP.finished){
+      if(diff<=0)stars=3; // winner
+      else if(diff<=2)stars=2; // within 2s
+      else if(diff<=5)stars=1; // within 5s
+    }
+    const starStr='⭐'.repeat(stars)+'☆'.repeat(3-stars);
+    if(stars>=1){sub.textContent=starStr+' LEVEL COMPLETE!';sub.style.color=stars===3?'#22cc55':stars===2?'#0ff':'#ffcc00';
+      if(CLV>=MLV)MLV=CLV+1;saveProgress();
       b2.textContent='Next Level';b2.onclick=()=>{CLV=Math.min(CLV+1,MLV);document.getElementById('results').classList.add('hidden');hideG();startSolo()};
       b1.textContent='Menu';b1.onclick=backToMenu}
-    else{sub.textContent='Win 1st to advance!';sub.style.color='#f55';
+    else{sub.textContent='☆☆☆ Finish within 5s of winner!';sub.style.color='#f55';
       b2.textContent='Retry';b2.onclick=()=>{document.getElementById('results').classList.add('hidden');hideG();startSolo()};
       b1.textContent='Menu';b1.onclick=backToMenu}
   }else if(GM==='tt'){
@@ -1184,7 +1501,7 @@ function returnToLobby(){
 }
 
 function hideG(){document.getElementById('hud').classList.add('hidden');document.getElementById('mobileCtrl').classList.add('hidden');document.getElementById('nosBar').style.display='none';document.getElementById('ttHud').classList.add('hidden');document.getElementById('pauseMenu').style.display='none'}
-function backToMenu(){GS='menu';document.getElementById('results').classList.add('hidden');hideG();document.getElementById('roomInfo').style.display='none';document.getElementById('joinInfo').style.display='none';if(CH){CH.close();CH=null}PS={};bullets=[];spectators=[];police=[];showScreen('menuScreen')}
+function backToMenu(){GS='menu';document.getElementById('results').classList.add('hidden');document.getElementById('infOverlay').classList.add('hidden');document.getElementById('infGameOver').classList.add('hidden');hideG();document.getElementById('roomInfo').style.display='none';document.getElementById('joinInfo').style.display='none';if(CH){CH.close();CH=null}PS={};bullets=[];spectators=[];police=[];eventLog=[];showScreen('menuScreen')}
 
 let paused=false,prePauseGS='';
 function togglePause(){
@@ -1192,6 +1509,13 @@ function togglePause(){
   if(!paused&&(GS==='racing'||GS==='countdown')){
     paused=true;prePauseGS=GS;GS='paused';
     document.getElementById('pauseMenu').style.display='flex';
+    // Show infinite buffs if in infinite mode
+    const ib=document.getElementById('pauseInfBuffs');
+    if(GM==='infinite'&&infRun&&infRun.buffs.length>0){
+      ib.style.display='block';
+      ib.innerHTML='<div style="font-family:Orbitron;font-size:11px;color:#ff6b35;margin-bottom:6px">♾ BUFFS (Lap '+(infRun.lap+1)+')</div>'+
+        infRun.buffs.map(b=>'<div style="font-family:Rajdhani;font-size:12px;margin-bottom:4px;padding:4px 6px;background:rgba(255,255,255,.05);border-radius:4px"><span style="color:#5f5">'+b.pos+'</span><br><span style="color:#f55">'+b.neg+'</span></div>').join('');
+    }else{ib.style.display='none'}
   }else if(paused){
     paused=false;GS=prePauseGS;
     document.getElementById('pauseMenu').style.display='none';
@@ -1271,16 +1595,37 @@ function drawTrack(){
 }
 
 function drawObstacles(){
+  const now=performance.now();
   obstacles.forEach(ob=>{
     const sp=toS(ob.x,ob.y);cx.save();cx.translate(sp.x,sp.y);
+    const inGrace2=ob.graceEnd&&now<ob.graceEnd;
+    if(inGrace2){
+      // Ghost appearance during grace
+      cx.globalAlpha=.3+Math.sin(now*.01)*.15;
+    }
     // Red/yellow striped barrier block
-    cx.shadowColor='#f00';cx.shadowBlur=4;
+    cx.shadowColor='#f00';cx.shadowBlur=inGrace2?0:4;
     cx.fillStyle='#222';cx.fillRect(-6,-6,12,12);
     cx.fillStyle='#dd2200';cx.fillRect(-5,-5,5,5);
     cx.fillStyle='#ffcc00';cx.fillRect(0,0,5,5);
     cx.fillStyle='#dd2200';cx.fillRect(0,-5,5,5);
     cx.fillStyle='#ffcc00';cx.fillRect(-5,0,5,5);
-    cx.shadowBlur=0;cx.restore();
+    cx.shadowBlur=0;
+    // Pie countdown during grace
+    if(inGrace2){
+      const elapsed=now-ob.spawnAt;
+      const pct=Math.min(elapsed/ob.graceDur,1);
+      cx.globalAlpha=.8;
+      // Background circle
+      cx.fillStyle='rgba(0,0,0,.6)';cx.beginPath();cx.arc(0,0,9,0,Math.PI*2);cx.fill();
+      // Pie fill
+      cx.fillStyle='#ff6b35';cx.beginPath();cx.moveTo(0,0);
+      cx.arc(0,0,8,-Math.PI/2,-Math.PI/2+Math.PI*2*pct);cx.closePath();cx.fill();
+      // Center text
+      cx.fillStyle='#fff';cx.font='bold 7px Orbitron';cx.textAlign='center';cx.textBaseline='middle';
+      cx.fillText(Math.ceil((ob.graceDur-elapsed)/1000),0,1);
+    }
+    cx.globalAlpha=1;cx.restore();
   });
 }
 
@@ -1291,13 +1636,19 @@ if(c.boost){const pl=isNext?1+Math.sin(t*3)*.2:1;cx.scale(pl,pl);cx.beginPath();
 else{if(isNext)cx.translate(0,Math.sin(t*2+c.x*50)*2);cx.beginPath();cx.arc(0,0,14,0,Math.PI*2);cx.fillStyle='rgba(255,215,0,.3)';cx.fill();cx.beginPath();cx.arc(0,0,10,0,Math.PI*2);cx.fillStyle='#ffd700';cx.fill();cx.fillStyle='#b8860b';cx.font='bold 13px sans-serif';cx.textAlign='center';cx.textBaseline='middle';cx.fillText('★',0,1)}
 cx.restore()})}
 
-function drawCar(p){if(p.dead)return; // don't draw dead cars
+function drawCar(p){if(p.dead)return;
+// Grace period: flash the car
+const inGrace=p.graceUntil&&performance.now()<p.graceUntil;
+if(inGrace&&Math.sin(performance.now()*.02)>0)cx.globalAlpha=.4;else cx.globalAlpha=1;
 const sp=toS(p.x,p.y);cx.save();cx.translate(sp.x,sp.y);
 // Grace period flash — first 5 seconds cars are ghosted
 const raceT=(performance.now()-RST)/1000;
-const inGrace=GS==='racing'&&raceT<5;
-if(inGrace){cx.globalAlpha=.4+Math.sin(performance.now()*.015)*.25}
+const startGrace=GS==='racing'&&raceT<5;
+if(startGrace){cx.globalAlpha=.4+Math.sin(performance.now()*.015)*.25}
 cx.rotate(p.angle);
+// Car size scaling from infinite buffs
+const carScale=GM==='infinite'?(p.isNpc?(getInfMods().enemySize||1):(LP._im?LP._im.playerSize:1)):1;
+if(carScale!==1)cx.scale(carScale,carScale);
 if(p.nosOn){cx.save();for(let i=0;i<6;i++){cx.globalAlpha=.4-i*.06;cx.fillStyle=i%2?'#0cf':'#08f';cx.beginPath();cx.ellipse(-12-i*5,(Math.random()-.5)*3,4+Math.random()*2,2+Math.random()*2,0,0,Math.PI*2);cx.fill()}cx.restore()}
 if(p.speed<-.02&&!p.isNpc){cx.save();cx.globalAlpha=.3;cx.fillStyle='#f44';cx.beginPath();cx.arc(14,(Math.random()-.5)*4,3+Math.random()*2,0,Math.PI*2);cx.fill();cx.restore()}
 cx.shadowColor=p.color;cx.shadowBlur=p.nosOn?20:6;
@@ -1332,7 +1683,7 @@ if(p.gunCD){
     cx.fillStyle='#fff';cx.font='bold 8px Orbitron';cx.globalAlpha=.9;cx.fillText(Math.ceil(cdLeft*5),0,3);
   }
 }
-cx.restore()}
+cx.restore();cx.globalAlpha=1}
 
 function drawExplosions(){
   const now=performance.now();
@@ -1363,6 +1714,9 @@ CN.forEach(c=>{if(LP&&coinGotBy(c,LP.id))return;const x=pd+c.x*(w-pd*2),y=pd+c.y
 
 function updHUD(){
   const nd=CPL[Math.min(LP.lap,CPL.length-1)];
+  const isInf=GM==='infinite';
+  document.getElementById('hudLapBox').style.display=isInf?'none':'';
+  document.getElementById('hudPosBox').style.display=isInf?'none':'';
   document.getElementById('hudLap').textContent=Math.min(LP.lap+1,TL)+'/'+TL;
   document.getElementById('hudCoins').textContent=LP.coins+'/'+nd;
   // Speedo: map 0-PH.ns to 0-300, display as km/h (NOS can push past 120)
@@ -1418,8 +1772,10 @@ function gameLoop(){
     }else{isReplaying=false;showRes()}
   }else{
     if(GS==='racing'){
-      checkRespawns();updGunHeat();updBullets();regenAINos();checkSpectatorHits();updPolice();
-      updLP(LP);if(GM==='solo'||GM==='tt')Object.values(PS).forEach(p=>{if(p.isNpc)updNPC(p)});
+      checkRespawns();updGunHeat();updBullets();regenAINos();spawnObstacles();checkSpectatorHits();updPolice();
+      // Infinite HP regen
+      if(GM==='infinite'&&LP&&!LP.dead&&LP._im&&LP._im.hpRegen>0){const maxHp5=100+(LP._im.hpBonus||0);LP.hp=Math.min(maxHp5,LP.hp+LP._im.hpRegen/60)}
+      updLP(LP);if(GM==='solo'||GM==='tt'||GM==='infinite')Object.values(PS).forEach(p=>{if(p.isNpc)updNPC(p)});
       // Record frame
       const fr={};Object.values(PS).forEach(p=>{fr[p.id]={x:p.x,y:p.y,angle:p.angle,speed:p.speed,progress:p.progress,lap:p.lap,coins:p.coins,nosOn:p.nosOn,finished:p.finished,dead:p.dead,hp:p.hp}});
       replayData.push(fr);
@@ -1446,6 +1802,7 @@ function gameLoop(){
     cx.restore();
   }
   cx.restore();
+  drawEventLog();
   // Replay HUD overlay — positioned below HUD on mobile
   if(isReplaying){
     const ry=isMob()?52:0; // offset below HUD on mobile
