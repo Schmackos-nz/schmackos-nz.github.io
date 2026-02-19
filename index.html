@@ -82,7 +82,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0a0a0f;color:#fff;f
 <button class="menu-btn primary" onclick="showScreen('createScreen')">Vs Friend</button>
 <button class="menu-btn secondary" onclick="showScreen('joinScreen')">Join Room</button>
 <button class="menu-btn secondary" onclick="showScreen('settingsScreen')" style="margin-top:12px;border-color:rgba(255,255,255,.2);color:rgba(255,255,255,.6)">⚙ Settings</button>
-<div style="position:absolute;bottom:12px;font-family:Rajdhani;font-size:11px;color:rgba(255,255,255,.2);letter-spacing:1px">v0.1.5</div></div>
+<div style="position:absolute;bottom:12px;font-family:Rajdhani;font-size:11px;color:rgba(255,255,255,.2);letter-spacing:1px">v0.1.6</div></div>
 
 <div class="screen hidden" id="settingsScreen"><button class="back-btn" onclick="showScreen('menuScreen')">← BACK</button>
 <div class="logo" style="font-size:clamp(20px,4vw,36px)">Settings</div>
@@ -1266,11 +1266,10 @@ const INF_BUFFS=[
   {pos:'💪 Deal 50% more damage',neg:'Take 25% more damage',posK:'dmgOut',posV:1.5,negK:'dmgIn',negV:1.25},
   {pos:'⚡ 30% faster top speed',neg:'Brake 30% weaker',posK:'spdMult',posV:1.3,negK:'brakeMult',negV:.7},
   {pos:'🛡 Take 30% less damage',neg:'Deal 30% less damage',posK:'dmgIn',posV:.7,negK:'dmgOut',negV:.7},
-  {pos:'🎯 Gun cools 40% faster',neg:'Bullets live 30% shorter',posK:'gunCool',posV:1.4,negK:'bulletLife',negV:.7},
+  {pos:'🎯 Gun cools 5% faster',neg:'Bullets live 30% shorter',posK:'gunCool',posV:1.05,negK:'bulletLife',negV:.7},
   {pos:'💨 Accelerate 40% faster',neg:'Max speed -10%',posK:'accelMult',posV:1.4,negK:'spdMult',negV:.9},
   {pos:'🔥 NOS 30% more powerful',neg:'NOS capacity -25%',posK:'nosPower',posV:1.3,negK:'nosCap',negV:.75},
   {pos:'❤️ +50 max HP',neg:'Speed -15%',posK:'hpBonus',posV:50,negK:'spdMult',negV:.85},
-  {pos:'🚗 +1 Enemy Car',neg:'Track gets busier!',posK:'addCar',posV:1,negK:'none',negV:1},
   {pos:'🩸 Heal 2 HP per hit dealt',neg:'Enemies heal 1 HP per hit on you',posK:'lifeSteal',posV:2,negK:'enemyLifeSteal',negV:1},
   {pos:'💉 Regen 1 HP/sec',neg:'Max HP -25',posK:'hpRegen',posV:1,negK:'hpBonus',negV:-25},
   {pos:'🧲 Heal 15 HP per coin',neg:'Take 40% more damage',posK:'coinHeal',posV:15,negK:'dmgIn',negV:1.4},
@@ -1362,7 +1361,7 @@ function showInfLapChoice(){
   infHealSpdBoost=Math.round(5+Math.random()*15);
   document.getElementById('infChoiceA').innerHTML='<span style="color:#5f5">'+infChoices[0].pos+'</span><br><span style="color:#f55">'+infChoices[0].neg+'</span><br><span style="color:#f88;font-size:12px">⚠ Enemies +'+infChoices[0].enemySpdBoost+'% speed</span>';
   document.getElementById('infChoiceB').innerHTML='<span style="color:#5f5">'+infChoices[1].pos+'</span><br><span style="color:#f55">'+infChoices[1].neg+'</span><br><span style="color:#f88;font-size:12px">⚠ Enemies +'+infChoices[1].enemySpdBoost+'% speed</span>';
-  document.getElementById('infChoiceHeal').innerHTML='<span style="color:#0cf">💚 Heal 50% HP</span><br><span style="color:#888">No buff or debuff</span><br><span style="color:#f88;font-size:12px">⚠ Enemies +'+infHealSpdBoost+'% speed</span>';
+  document.getElementById('infChoiceHeal').innerHTML='<span style="color:#0cf">💚 Heal 50% HP</span><br><span style="color:#f55">🚗 +1 Enemy Car</span><br><span style="color:#f88;font-size:12px">⚠ Enemies +'+infHealSpdBoost+'% speed</span>';
 }
 function pickInfBuff(idx){
   const choice=infChoices[idx];
@@ -1429,13 +1428,29 @@ function pickInfHeal(){
   // Apply enemy speed boost
   const boostMult=1+infHealSpdBoost/100;
   Object.values(PS).forEach(p=>{if(p.isNpc)p.nSpd=Math.min(p.nSpd*boostMult,PH.ms*2.5)});
-  infRun.buffs.push({posK:'none',posV:0,negK:'none',negV:0,pos:'💚 Heal 50% HP',neg:'No buff or debuff',enemySpdBoost:infHealSpdBoost});
+  // Spawn +1 car
+  const npcCount=Object.values(PS).filter(p=>p.isNpc).length;
+  const ni=npcCount;
+  const n=mkP('npc_heal'+Date.now(),NPC[ni%NPC.length],COL[(ni+1)%COL.length],true);
+  const rng=mkRng(Date.now());
+  n.nSpd=Math.min(PH.ms*(.88+rng()*.2)*1.2,PH.ms*1.33);
+  // Apply accumulated enemy speed from all previous buffs
+  let totalBoost=boostMult;
+  infRun.buffs.forEach(b=>{if(b.enemySpdBoost)totalBoost*=1+b.enemySpdBoost/100});
+  n.nSpd=Math.min(n.nSpd*totalBoost,PH.ms*2.5);
+  n.nNos=.01;n.nOff=(rng()-.5)*.02;n.nAgg=.5+rng()*.5;
+  n.nosMax=100;n.nos=50;n.gunHeatPer=5;
+  const pr=(LP.progress-.15+1)%1;const pt=gtp(pr);
+  n.x=pt.x;n.y=pt.y;n.angle=gta(pr);n.progress=pr;n.lap=LP.lap;
+  n.graceUntil=performance.now()+3000;
+  PS[n.id]=n;
+  infRun.buffs.push({posK:'none',posV:0,negK:'none',negV:0,pos:'💚 Heal 50% HP',neg:'🚗 +1 Enemy Car',enemySpdBoost:infHealSpdBoost});
   infRun.lap++;
   document.getElementById('infOverlay').classList.add('hidden');
   CN=genCoins(LP.lap);CN.forEach(c=>delete c.got[LP.id]);
   LP.coins=0;
   GS='racing';
-  addEvent('💚 Healed to '+Math.round(LP.hp)+' HP','#22cc55');
+  addEvent('💚 Healed +'+n.name+' spawned','#22cc55');
 }
 function showInfGameOver(){
   GS='finished';
