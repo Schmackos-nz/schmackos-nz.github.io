@@ -81,7 +81,8 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0a0a0f;color:#fff;f
 <button class="menu-btn primary" onclick="showScreen('infScreen')">♾ Infinite</button>
 <button class="menu-btn primary" onclick="showScreen('createScreen')">Vs Friend</button>
 <button class="menu-btn secondary" onclick="showScreen('joinScreen')">Join Room</button>
-<button class="menu-btn secondary" onclick="showScreen('settingsScreen')" style="margin-top:12px;border-color:rgba(255,255,255,.2);color:rgba(255,255,255,.6)">⚙ Settings</button></div>
+<button class="menu-btn secondary" onclick="showScreen('settingsScreen')" style="margin-top:12px;border-color:rgba(255,255,255,.2);color:rgba(255,255,255,.6)">⚙ Settings</button>
+<div style="position:absolute;bottom:12px;font-family:Rajdhani;font-size:11px;color:rgba(255,255,255,.2);letter-spacing:1px">v0.1.5</div></div>
 
 <div class="screen hidden" id="settingsScreen"><button class="back-btn" onclick="showScreen('menuScreen')">← BACK</button>
 <div class="logo" style="font-size:clamp(20px,4vw,36px)">Settings</div>
@@ -1333,7 +1334,15 @@ function startInfinite(cont){
   // Apply mods
   const m=getInfMods();
   LP.hp=100+m.hpBonus;
-  posAll();CN=genCoins(0);startCD();
+  posAll();
+  // In infinite, spread AI cars evenly around the track
+  const npcs=Object.values(PS).filter(p=>p.isNpc);
+  npcs.forEach((n,i)=>{
+    const pr=(i+1)/(npcs.length+1); // evenly spaced 0-1
+    n.progress=pr;n.lap=0;
+    const pt=gtp(pr);n.x=pt.x;n.y=pt.y;n.angle=gta(pr);
+  });
+  CN=genCoins(0);startCD();
 }
 function showInfLapChoice(){
   document.getElementById('infOverlay').classList.remove('hidden');
