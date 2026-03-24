@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dungeons</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: sans-serif;
+      background: #1a1a2e;
+      color: #e0e0e0;
+      padding: 80px;
+    }
+
+    .tab-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      border-bottom: 2px solid #444;
+      padding-bottom: 0;
+    }
+
+    .tab {
+      padding: 8px 16px;
+      background: #2a2a3e;
+      border: 1px solid #444;
+      border-bottom: none;
+      border-radius: 4px 4px 0 0;
+      cursor: pointer;
+      color: #aaa;
+      font-size: 14px;
+      transition: background 0.15s, color 0.15s;
+      position: relative;
+      bottom: -2px;
+    }
+
+    .tab:hover {
+      background: #3a3a5e;
+      color: #ddd;
+    }
+
+    .tab.active {
+      background: #0f3460;
+      color: #fff;
+      border-color: #4a90d9;
+      border-bottom-color: #0f3460;
+    }
+
+    .tab-content {
+      display: none;
+      border: 1px solid #444;
+      border-top: none;
+      background: #12122a;
+      padding: 20px;
+      border-radius: 0 0 4px 4px;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+
+    img {
+ 	display: flex;
+	margin: 0 auto !important;
+	max-width: 100%;
+    }
+
+
+  </style>
+</head>
+<body>
+
+  <div class="tab-bar">
+    <div class="tab active" onclick="showTab(this, 'algethar')">Algethar Academy</div>
+    <div class="tab" onclick="showTab(this, 'magisters')">Magisters Terrace</div>
+    <div class="tab" onclick="showTab(this, 'maisara')">Maisara Caverns</div>
+    <div class="tab" onclick="showTab(this, 'nexus')">Nexus-Point Xenas</div>
+    <div class="tab" onclick="showTab(this, 'pit')">Pit of Saron</div>
+    <div class="tab" onclick="showTab(this, 'seat')">Seat of the Triumvirate</div>
+    <div class="tab" onclick="showTab(this, 'skyreach')">Skyreach</div>
+    <div class="tab" onclick="showTab(this, 'windrunner')">Windrunner Spire</div>
+  </div>
+
+  <div id="algethar" class="tab-content active">
+    <div id="content"><img src="https://wow.zamimg.com/uploads/screenshots/normal/1276511.png?maxWidth=800"></div>
+  </div>
+
+  <div id="magisters" class="tab-content">
+    <div id="content"><img src="https://wow.zamimg.com/uploads/screenshots/normal/1276507.png?maxWidth=800"></div>
+  </div>
+
+  <div id="maisara" class="tab-content">
+    <div id="content"><img src="https://wow.zamimg.com/uploads/screenshots/normal/1276514.png?maxWidth=800"></div>
+  </div>
+
+  <div id="nexus" class="tab-content">
+    <div id="content"><img src="https://wow.zamimg.com/uploads/screenshots/normal/1276508.png?maxWidth=800"></div>
+  </div>
+
+  <div id="pit" class="tab-content">
+    <div id="content"><img src="https://wow.zamimg.com/uploads/screenshots/normal/1276513.png?maxWidth=800"></div>
+  </div>
+
+  <div id="seat" class="tab-content">
+    <div id="content"><img src="https://wow.zamimg.com/uploads/screenshots/normal/1276512.png?maxWidth=800"></div>
+  </div>
+
+  <div id="skyreach" class="tab-content">
+    <div id="content"><img src="https://wow.zamimg.com/uploads/screenshots/normal/1276510.png?maxWidth=800"></div>
+  </div>
+
+  <div id="windrunner" class="tab-content">
+    <div id="content"><img src="https://wow.zamimg.com/uploads/screenshots/normal/1276509.png?maxWidth=800"></div>
+  </div>
+
+  <script>
+    function showTab(tabEl, id) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      tabEl.classList.add('active');
+      document.getElementById(id).classList.add('active');
+    }
+  </script>
+
+</body>
+</html>
