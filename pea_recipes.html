@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Pea Lover's Recipe Book</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f4f9f4;
+      color: #2c3e2d;
+      padding: 30px 20px;
+    }
+
+    h1 {
+      text-align: center;
+      font-size: 2.4rem;
+      color: #2e7d32;
+      margin-bottom: 6px;
+    }
+
+    .subtitle {
+      text-align: center;
+      color: #5a7a5b;
+      margin-bottom: 30px;
+      font-size: 0.95rem;
+    }
+
+    /* ── Category filter buttons ── */
+    .filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+      margin-bottom: 24px;
+    }
+
+    .filter-btn {
+      padding: 6px 16px;
+      border: 2px solid #2e7d32;
+      border-radius: 20px;
+      background: white;
+      color: #2e7d32;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+
+    .filter-btn:hover, .filter-btn.active {
+      background: #2e7d32;
+      color: white;
+    }
+
+    /* ── Index table ── */
+    .index-table-wrapper {
+      overflow-x: auto;
+      margin-bottom: 40px;
+      border-radius: 10px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+      font-size: 0.9rem;
+    }
+
+    thead {
+      background: #2e7d32;
+      color: white;
+    }
+
+    thead th {
+      padding: 12px 16px;
+      text-align: left;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+    }
+
+    tbody tr {
+      border-bottom: 1px solid #e8f5e9;
+      transition: background 0.15s;
+    }
+
+    tbody tr:last-child { border-bottom: none; }
+
+    tbody tr:hover { background: #f1faf1; }
+
+    tbody td {
+      padding: 11px 16px;
+      vertical-align: middle;
+    }
+
+    .recipe-link {
+      color: #2e7d32;
+      font-weight: 600;
+      text-decoration: none;
+      cursor: pointer;
+    }
+
+    .recipe-link:hover { text-decoration: underline; }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 12px;
+      font-size: 0.78rem;
+      font-weight: 700;
+    }
+
+    .cat-soup    { background: #e3f2fd; color: #1565c0; }
+    .cat-main    { background: #fff9c4; color: #f57f17; }
+    .cat-side    { background: #f3e5f5; color: #6a1b9a; }
+    .cat-snack   { background: #e8f5e9; color: #2e7d32; }
+    .cat-dessert { background: #fce4ec; color: #ad1457; }
+
+    .diff-easy   { color: #43a047; font-weight: 600; }
+    .diff-medium { color: #fb8c00; font-weight: 600; }
+
+    /* ── Recipe cards ── */
+    .recipes-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+      gap: 24px;
+    }
+
+    .recipe-card {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+      overflow: hidden;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .recipe-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+    }
+
+    .card-header {
+      background: #2e7d32;
+      color: white;
+      padding: 14px 18px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 10px;
+    }
+
+    .card-header h3 {
+      font-size: 1rem;
+      font-weight: 700;
+      line-height: 1.3;
+    }
+
+    .card-header .num {
+      background: rgba(255,255,255,0.25);
+      border-radius: 50%;
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.8rem;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .card-meta {
+      display: flex;
+      gap: 12px;
+      padding: 10px 18px;
+      background: #f9fdf9;
+      border-bottom: 1px solid #e8f5e9;
+      font-size: 0.82rem;
+      flex-wrap: wrap;
+    }
+
+    .card-meta span { color: #5a7a5b; }
+    .card-meta strong { color: #2c3e2d; }
+
+    .card-body {
+      padding: 16px 18px;
+    }
+
+    .card-body h4 {
+      font-size: 0.82rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #2e7d32;
+      margin-bottom: 8px;
+      margin-top: 14px;
+    }
+
+    .card-body h4:first-child { margin-top: 0; }
+
+    .card-body ul, .card-body ol {
+      padding-left: 18px;
+      font-size: 0.88rem;
+      line-height: 1.7;
+      color: #3d5c3e;
+    }
+
+    .card-body ol li { margin-bottom: 4px; }
+
+    /* ── Section headers ── */
+    .section-title {
+      font-size: 1.4rem;
+      color: #2e7d32;
+      margin: 40px 0 16px;
+      padding-bottom: 8px;
+      border-bottom: 3px solid #a5d6a7;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>🫛 The Pea Lover's Recipe Book</h1>
+  <p class="subtitle">14 recipes across soups, mains, sides, snacks & dessert</p>
+
+  <!-- Filter buttons -->
+  <div class="filters">
+    <button class="filter-btn active" onclick="filterCards('all', this)">All</button>
+    <button class="filter-btn" onclick="filterCards('soup', this)">Soups & Starters</button>
+    <button class="filter-btn" onclick="filterCards('main', this)">Mains</button>
+    <button class="filter-btn" onclick="filterCards('side', this)">Sides & Salads</button>
+    <button class="filter-btn" onclick="filterCards('snack', this)">Snacks</button>
+    <button class="filter-btn" onclick="filterCards('dessert', this)">Dessert</button>
+  </div>
+
+  <!-- Index Table -->
+  <div class="index-table-wrapper">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Recipe</th>
+          <th>Category</th>
+          <th>Serves</th>
+          <th>Time</th>
+          <th>Difficulty</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>1</td>
+          <td><a class="recipe-link" onclick="scrollTo('r1')">Classic Split Pea Soup</a></td>
+          <td><span class="badge cat-soup">Soup</span></td>
+          <td>6</td>
+          <td>1h 30m</td>
+          <td class="diff-medium">Medium</td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td><a class="recipe-link" onclick="scrollTo('r2')">Chilled Pea &amp; Mint Soup</a></td>
+          <td><span class="badge cat-soup">Soup</span></td>
+          <td>4</td>
+          <td>20m</td>
+          <td class="diff-easy">Easy</td>
+        </tr>
+        <tr>
+          <td>3</td>
+          <td><a class="recipe-link" onclick="scrollTo('r3')">Pea &amp; Ricotta Bruschetta</a></td>
+          <td><span class="badge cat-soup">Starter</span></td>
+          <td>4</td>
+          <td>15m</td>
+          <td class="diff-easy">Easy</td>
+        </tr>
+        <tr>
+          <td>4</td>
+          <td><a class="recipe-link" onclick="scrollTo('r4')">Pea &amp; Prawn Risotto</a></td>
+          <td><span class="badge cat-main">Main</span></td>
+          <td>4</td>
+          <td>40m</td>
+          <td class="diff-medium">Medium</td>
+        </tr>
+        <tr>
+          <td>5</td>
+          <td><a class="recipe-link" onclick="scrollTo('r5')">Lamb Keema with Peas</a></td>
+          <td><span class="badge cat-main">Main</span></td>
+          <td>4</td>
+          <td>45m</td>
+          <td class="diff-medium">Medium</td>
+        </tr>
+        <tr>
+          <td>6</td>
+          <td><a class="recipe-link" onclick="scrollTo('r6')">Pasta e Piselli</a></td>
+          <td><span class="badge cat-main">Main</span></td>
+          <td>4</td>
+          <td>25m</td>
+          <td class="diff-easy">Easy</td>
+        </tr>
+        <tr>
+          <td>7</td>
+          <td><a class="recipe-link" onclick="scrollTo('r7')">Pea &amp; Spinach Shakshuka</a></td>
+          <td><span class="badge cat-main">Main</span></td>
+          <td>4</td>
+          <td>30m</td>
+          <td class="diff-easy">Easy</td>
+        </tr>
+        <tr>
+          <td>8</td>
+          <td><a class="recipe-link" onclick="scrollTo('r8')">Fish Pie with Pea Mash</a></td>
+          <td><span class="badge cat-main">Main</span></td>
+          <td>6</td>
+          <td>1h</td>
+          <td class="diff-medium">Medium</td>
+        </tr>
+        <tr>
+          <td>9</td>
+          <td><a class="recipe-link" onclick="scrollTo('r9')">Smashed Peas with Feta &amp; Lemon</a></td>
+          <td><span class="badge cat-side">Side</span></td>
+          <td>4</td>
+          <td>10m</td>
+          <td class="diff-easy">Easy</td>
+        </tr>
+        <tr>
+          <td>10</td>
+          <td><a class="recipe-link" onclick="scrollTo('r10')">Pea, Bacon &amp; Potato Salad</a></td>
+          <td><span class="badge cat-side">Salad</span></td>
+          <td>6</td>
+          <td>25m</td>
+          <td class="diff-easy">Easy</td>
+        </tr>
+        <tr>
+          <td>11</td>
+          <td><a class="recipe-link" onclick="scrollTo('r11')">Pea &amp; Mint Fritters</a></td>
+          <td><span class="badge cat-side">Side</span></td>
+          <td>4</td>
+          <td>20m</td>
+          <td class="diff-easy">Easy</td>
+        </tr>
+        <tr>
+          <td>12</td>
+          <td><a class="recipe-link" onclick="scrollTo('r12')">Pea Hummus</a></td>
+          <td><span class="badge cat-snack">Snack</span></td>
+          <td>6</td>
+          <td>10m</td>
+          <td class="diff-easy">Easy</td>
+        </tr>
+        <tr>
+          <td>13</td>
+          <td><a class="recipe-link" onclick="scrollTo('r13')">Crispy Roasted Chickpea &amp; Pea Bowl</a></td>
+          <td><span class="badge cat-snack">Snack</span></td>
+          <td>2</td>
+          <td>35m</td>
+          <td class="diff-easy">Easy</td>
+        </tr>
+        <tr>
+          <td>14</td>
+          <td><a class="recipe-link" onclick="scrollTo('r14')">Pea &amp; Vanilla Ice Cream</a></td>
+          <td><span class="badge cat-dessert">Dessert</span></td>
+          <td>6</td>
+          <td>20m + freeze</td>
+          <td class="diff-medium">Medium</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Recipe Cards -->
+  <h2 class="section-title">Soups &amp; Starters</h2>
+  <div class="recipes-grid">
+
+    <div class="recipe-card" id="r1" data-cat="soup">
+      <div class="card-header">
+        <div class="num">1</div>
+        <h3>Classic Split Pea Soup</h3>
+      </div>
+      <div class="card-meta">
+        <span>Serves <strong>6</strong></span>
+        <span>Time <strong>1h 30m</strong></span>
+        <span>Difficulty <strong>Medium</strong></span>
+        <span><span class="badge cat-soup">Soup</span></span>
+      </div>
+      <div class="card-body">
+        <h4>Ingredients</h4>
+        <ul>
+          <li>500g dried green split peas</li>
+          <li>1 smoked ham hock</li>
+          <li>2 carrots, diced</li>
+          <li>2 celery stalks, diced</li>
+          <li>1 onion, diced</li>
+          <li>3 garlic cloves, minced</li>
+          <li>1.5L chicken stock</li>
+          <li>Salt, pepper, thyme</li>
+        </ul>
+        <h4>Method</h4>
+        <ol>
+          <li>Sauté onion, carrot, celery in oil until soft.</li>
+          <li>Add garlic, peas, stock, ham hock, and thyme.</li>
+          <li>Simmer 1 hour until peas dissolve into a thick soup.</li>
+          <li>Remove hock, shred meat, stir back in. Season to taste.</li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="recipe-card" id="r2" data-cat="soup">
+      <div class="card-header">
+        <div class="num">2</div>
+        <h3>Chilled Pea &amp; Mint Soup</h3>
+      </div>
+      <div class="card-meta">
+        <span>Serves <strong>4</strong></span>
+        <span>Time <strong>20m</strong></span>
+        <span>Difficulty <strong>Easy</strong></span>
+        <span><span class="badge cat-soup">Soup</span></span>
+      </div>
+      <div class="card-body">
+        <h4>Ingredients</h4>
+        <ul>
+          <li>600g frozen peas</li>
+          <li>700ml vegetable stock</li>
+          <li>1 bunch fresh mint</li>
+          <li>200ml crème fraîche</li>
+          <li>1 shallot, sliced</li>
+          <li>Lemon juice</li>
+        </ul>
+        <h4>Method</h4>
+        <ol>
+          <li>Sweat shallot in butter, add stock and bring to boil.</li>
+          <li>Add peas, cook 3 minutes, add mint.</li>
+          <li>Blend until smooth, swirl in crème fraîche.</li>
+          <li>Chill, season with lemon juice, salt and pepper.</li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="recipe-card" id="r3" data-cat="soup">
+      <div class="card-header">
+        <div class="num">3</div>
+        <h3>Pea &amp; Ricotta Bruschetta</h3>
+      </div>
+      <div class="card-meta">
+        <span>Serves <strong>4</strong></span>
+        <span>Time <strong>15m</strong></span>
+        <span>Difficulty <strong>Easy</strong></span>
+        <span><span class="badge cat-soup">Starter</span></span>
+      </div>
+      <div class="card-body">
+        <h4>Ingredients</h4>
+        <ul>
+          <li>200g fresh peas (or frozen, thawed)</li>
+          <li>200g ricotta</li>
+          <li>4 thick slices sourdough</li>
+          <li>Lemon zest + juice</li>
+          <li>Fresh mint, chilli flakes, olive oil</li>
+        </ul>
+        <h4>Method</h4>
+        <ol>
+          <li>Crush peas roughly with a fork. Mix with ricotta, lemon zest, and mint.</li>
+          <li>Toast bread, rub with garlic.</li>
+          <li>Pile pea mix on top, drizzle olive oil, finish with chilli flakes.</li>
+        </ol>
+      </div>
+    </div>
+
+  </div>
+
+  <h2 class="section-title">Mains</h2>
+  <div class="recipes-grid">
+
+    <div class="recipe-card" id="r4" data-cat="main">
+      <div class="card-header">
+        <div class="num">4</div>
+        <h3>Pea &amp; Prawn Risotto</h3>
+      </div>
+      <div class="card-meta">
+        <span>Serves <strong>4</strong></span>
+        <span>Time <strong>40m</strong></span>
+        <span>Difficulty <strong>Medium</strong></span>
+        <span><span class="badge cat-main">Main</span></span>
+      </div>
+      <div class="card-body">
+        <h4>Ingredients</h4>
+        <ul>
+          <li>350g arborio rice</li>
+          <li>400g raw king prawns</li>
+          <li>250g frozen peas</li>
+          <li>1.2L hot fish stock</li>
+          <li>1 onion, finely diced</li>
+          <li>150ml dry white wine</li>
+          <li>50g parmesan, grated</li>
+          <li>50g butter</li>
+        </ul>
+        <h4>Method</h4>
+        <ol>
+          <li>Fry onion in butter until translucent. Add rice, toast 2 minutes.</li>
+          <li>Add wine, stir until absorbed. Add stock ladle by ladle, stirring constantly.</li>
+          <li>Stir in peas and prawns in the final 5 minutes.</li>
+          <li>Remove from heat, beat in butter and parmesan. Rest 2 minutes before serving.</li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="recipe-card" id="r5" data-cat="main">
+      <div class="card-header">
+        <div class="num">5</div>
+        <h3>Lamb Keema with Peas (Keema Matar)</h3>
+      </div>
+      <div class="card-meta">
+        <span>Serves <strong>4</strong></span>
+        <span>Time <strong>45m</strong></span>
+        <span>Difficulty <strong>Medium</strong></span>
+        <span><span class="badge cat-main">Main</span></span>
+      </div>
+      <div class="card-body">
+        <h4>Ingredients</h4>
+        <ul>
+          <li>500g minced lamb</li>
+          <li>250g frozen peas</li>
+          <li>2 onions, finely diced</li>
+          <li>4 garlic cloves, minced</li>
+          <li>1 tbsp ginger, grated</li>
+          <li>400g tin chopped tomatoes</li>
+          <li>2 tsp garam masala</li>
+          <li>1 tsp each: cumin, coriander, turmeric</li>
+          <li>Fresh coriander, to serve</li>
+        </ul>
+        <h4>Method</h4>
+        <ol>
+          <li>Brown onion in oil, add garlic and ginger, cook 2 minutes.</li>
+          <li>Add spices, stir 1 minute. Add lamb, brown thoroughly.</li>
+          <li>Add tomatoes, simmer 20 minutes. Add peas, cook 5 minutes more.</li>
+          <li>Serve with basmati rice or naan.</li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="recipe-card" id="r6" data-cat="main">
+      <div class="card-header">
+        <div class="num">6</div>
+        <h3>Pasta e Piselli</h3>
+      </div>
+      <div class="card-meta">
+        <span>Serves <strong>4</strong></span>
+        <span>Time <strong>25m</strong></span>
+        <span>Difficulty <strong>Easy</strong></span>
+        <span><span class="badge cat-main">Main</span></span>
+      </div>
+      <div class="card-body">
+        <h4>Ingredients</h4>
+        <ul>
+          <li>400g small pasta (ditalini or orzo)</li>
+          <li>400g frozen peas</li>
+          <li>150g pancetta or bacon, diced</li>
+          <li>1 onion, finely diced</li>
+          <li>2 garlic cloves</li>
+          <li>500ml chicken stock</li>
+          <li>Parmesan, pepper, olive oil</li>
+        </ul>
+        <h4>Method</h4>
+        <ol>
+          <li>Fry pancetta until crisp. Add onion and garlic, soften.</li>
+          <li>Add peas and stock, simmer 5 minutes.</li>
+          <li>Blend half the mixture, return to pan.</li>
+          <li>Cook pasta directly in the sauce, adding water as needed.</li>
+          <li>Serve thick and soupy with parmesan and black pepper.</li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="recipe-card" id="r7" data-cat="main">
+      <div class="card-header">
+        <div class="num">7</div>
+        <h3>Pea &amp; Spinach Shakshuka</h3>
+      </div>
+      <div class="card-meta">
+        <span>Serves <strong>4</strong></span>
+        <span>Time <strong>30m</strong></span>
+        <span>Difficulty <strong>Easy</strong></span>
+        <span><span class="badge cat-main">Main</span></span>
+      </div>
+      <div class="card-body">
+        <h4>Ingredients</h4>
+        <ul>
+          <li>200g frozen peas</li>
+          <li>100g baby spinach</li>
+          <li>800g tin crushed tomatoes</li>
+          <li>1 onion, diced</li>
+          <li>1 red pepper, diced</li>
+          <li>3 garlic cloves</li>
+          <li>1 tsp cumin, 1 tsp smoked paprika, ½ tsp cayenne</li>
+          <li>6 eggs</li>
+          <li>Feta, to crumble on top</li>
+        </ul>
+        <h4>Method</h4>
+        <ol>
+          <li>Sauté onion and pepper, add garlic and spices.</li>
+          <li>Add tomatoes, simmer 10 minutes. Stir in peas and spinach.</li>
+          <li>Make wells, crack in eggs. Cover and cook until whites are set.</li>
+          <li>Crumble feta over, serve with crusty bread.</li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="recipe-card" id="r8" data-cat="main">
+      <div class="card-header">
+        <div class="num">8</div>
+        <h3>Fish Pie with Pea Mash</h3>
+      </div>
+      <div class="card-meta">
+        <span>Serves <strong>6</strong></span>
+        <span>Time <strong>1h</strong></span>
+        <span>Difficulty <strong>Medium</strong></span>
+        <span><span class="badge cat-main">Main</span></span>
+      </div>
+      <div class="card-body">
+        <h4>Ingredients</h4>
+        <ul>
+          <li>800g mixed fish (salmon, cod, smoked haddock)</li>
+          <li>300g frozen peas (for sauce) + 400g (for topping)</li>
+          <li>1.2kg potatoes</li>
+          <li>500ml whole milk</li>
+          <li>50g butter + 50g flour (roux)</li>
+          <li>1 leek, sliced</li>
+          <li>Parsley, lemon zest</li>
+        </ul>
+        <h4>Method</h4>
+        <ol>
+          <li>Poach fish in milk, set aside. Make white sauce with butter, flour, and poaching milk.</li>
+          <li>Fold in fish, peas (300g), leek, parsley, and lemon zest. Pour into baking dish.</li>
+          <li>Boil potatoes, mash with butter. Blend in remaining peas for a green mash.</li>
+          <li>Top pie with pea mash, bake 200°C for 25 minutes until golden.</li>
+        </ol>
+      </div>
+    </div>
+
+  </div>
+
+  <h2 class="section-title">Sides &amp; Salads</h2>
+  <div class="recipes-grid">
+
+    <div class="recipe-card" id="r9" data-cat="side">
+      <div class="card-header">
+        <div class="num">9</div>
+        <h3>Smashed Peas with Feta &amp; Lemon</h3>
+      </div>
+      <div class="card-meta">
+        <span>Serves <strong>4</strong></span>
+        <span>Time <strong>10m</strong></span>
+        <span>Difficulty <strong>Easy</strong></span>
+        <span><span class="badge cat-side">Side</span></span>
+      </div>
+      <div class="card-body">
+        <h4>Ingredients</h4>
+        <ul>
+          <li>400g frozen peas</li>
+          <li>100g feta, crumbled</li>
+          <li>Lemon zest + juice</li>
+          <li>Extra virgin olive oil</li>
+          <li>Fresh mint, salt, pepper</li>
+        </ul>
+        <h4>Method</h4>
+        <ol>
+          <li>Boil peas 2 minutes, drain.</li>
+          <li>Roughly smash with a fork — keep it chunky.</li>
+          <li>Fold in feta, lemon, mint, and a generous drizzle of oil.</li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="recipe-card" id="r10" data-cat="side">
+      <div class="card-header">
+        <div class="num">10</div>
+        <h3>Pea, Bacon &amp; Potato Salad</h3>
+      </div>
+      <div class="card-meta">
+        <span>Serves <strong>6</strong></span>
+        <span>Time <strong>25m</strong></span>
+        <span>Difficulty <strong>Easy</strong></span>
+        <span><span class="badge cat-side">Salad</span></span>
+      </div>
+      <div class="card-body">
+        <h4>Ingredients</h4>
+        <ul>
+          <li>800g baby potatoes</li>
+          <li>200g frozen peas</li>
+          <li>150g bacon, diced</li>
+          <li>4 spring onions, sliced</li>
+          <li>3 tbsp mayonnaise</li>
+          <li>2 tbsp sour cream</li>
+          <li>Wholegrain mustard, cider vinegar</li>
+        </ul>
+        <h4>Method</h4>
+        <ol>
+          <li>Boil potatoes until tender, halve. Blanch peas 2 minutes.</li>
+          <li>Fry bacon until crisp.</li>
+          <li>Mix mayo, sour cream, mustard, and vinegar for dressing.</li>
+          <li>Toss potatoes, peas, bacon, and spring onions in dressing.</li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="recipe-card" id="r11" data-cat="side">
+      <div class="card-header">
+        <div class="num">11</div>
+        <h3>Pea &amp; Mint Fritters</h3>
+      </div>
+      <div class="card-meta">
+        <span>Serves <strong>4</strong></span>
+        <span>Time <strong>20m</strong></span>
+        <span>Difficulty <strong>Easy</strong></span>
+        <span><span class="badge cat-side">Side</span></span>
+      </div>
+      <div class="card-body">
+        <h4>Ingredients</h4>
+        <ul>
+          <li>300g frozen peas</li>
+          <li>2 eggs</li>
+          <li>80g plain flour</li>
+          <li>50g parmesan, grated</li>
+          <li>Handful fresh mint, chopped</li>
+          <li>Oil for frying</li>
+        </ul>
+        <h4>Method</h4>
+        <ol>
+          <li>Blanch and roughly crush peas.</li>
+          <li>Mix with eggs, flour, parmesan, and mint into a thick batter.</li>
+          <li>Fry heaped tablespoons in oil, 2–3 minutes per side until golden.</li>
+          <li>Serve with yoghurt or sour cream.</li>
+        </ol>
+      </div>
+    </div>
+
+  </div>
+
+  <h2 class="section-title">Snacks &amp; Light Bites</h2>
+  <div class="recipes-grid">
+
+    <div class="recipe-card" id="r12" data-cat="snack">
+      <div class="card-header">
+        <div class="num">12</div>
+        <h3>Pea Hummus</h3>
+      </div>
+      <div class="card-meta">
+        <span>Serves <strong>6</strong></span>
+        <span>Time <strong>10m</strong></span>
+        <span>Difficulty <strong>Easy</strong></span>
+        <span><span class="badge cat-snack">Snack</span></span>
+      </div>
+      <div class="card-body">
+        <h4>Ingredients</h4>
+        <ul>
+          <li>400g frozen peas</li>
+          <li>3 tbsp tahini</li>
+          <li>2 garlic cloves</li>
+          <li>Juice of 1 lemon</li>
+          <li>3 tbsp olive oil</li>
+          <li>Salt, cumin</li>
+        </ul>
+        <h4>Method</h4>
+        <ol>
+          <li>Boil peas 3 minutes, drain and cool.</li>
+          <li>Blend everything until smooth.</li>
+          <li>Drizzle with olive oil and a pinch of smoked paprika.</li>
+          <li>Serve with pita, crackers, or vegetables.</li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="recipe-card" id="r13" data-cat="snack">
+      <div class="card-header">
+        <div class="num">13</div>
+        <h3>Crispy Roasted Chickpea &amp; Pea Bowl</h3>
+      </div>
+      <div class="card-meta">
+        <span>Serves <strong>2</strong></span>
+        <span>Time <strong>35m</strong></span>
+        <span>Difficulty <strong>Easy</strong></span>
+        <span><span class="badge cat-snack">Snack</span></span>
+      </div>
+      <div class="card-body">
+        <h4>Ingredients</h4>
+        <ul>
+          <li>200g frozen peas</li>
+          <li>400g tin chickpeas, drained</li>
+          <li>Mixed greens, cucumber, radish</li>
+          <li>Tahini dressing (tahini, lemon, garlic, water)</li>
+          <li>Smoked paprika, olive oil</li>
+        </ul>
+        <h4>Method</h4>
+        <ol>
+          <li>Toss chickpeas in olive oil and paprika, roast 200°C for 25 minutes.</li>
+          <li>Blanch peas, cool.</li>
+          <li>Assemble bowl with greens, peas, roasted chickpeas, and vegetables.</li>
+          <li>Drizzle with tahini dressing.</li>
+        </ol>
+      </div>
+    </div>
+
+  </div>
+
+  <h2 class="section-title">Dessert</h2>
+  <div class="recipes-grid">
+
+    <div class="recipe-card" id="r14" data-cat="dessert">
+      <div class="card-header">
+        <div class="num">14</div>
+        <h3>Pea &amp; Vanilla Ice Cream</h3>
+      </div>
+      <div class="card-meta">
+        <span>Serves <strong>6</strong></span>
+        <span>Time <strong>20m + freeze</strong></span>
+        <span>Difficulty <strong>Medium</strong></span>
+        <span><span class="badge cat-dessert">Dessert</span></span>
+      </div>
+      <div class="card-body">
+        <h4>Ingredients</h4>
+        <ul>
+          <li>400g frozen peas</li>
+          <li>400ml double cream</li>
+          <li>200ml whole milk</li>
+          <li>150g caster sugar</li>
+          <li>1 tsp vanilla extract</li>
+          <li>Pinch of salt</li>
+        </ul>
+        <h4>Method</h4>
+        <ol>
+          <li>Blend peas with milk until completely smooth. Strain through a fine sieve.</li>
+          <li>Whip cream to soft peaks, fold in pea mixture, sugar, vanilla, and salt.</li>
+          <li>Churn in ice cream machine, or freeze in container, stirring every hour for 4 hours.</li>
+          <li>Subtly green, naturally sweet — serve with shortbread.</li>
+        </ol>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    function scrollTo(id) {
+      const el = document.getElementById(id);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    function filterCards(cat, btn) {
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+
+      document.querySelectorAll('.recipe-card').forEach(card => {
+        if (cat === 'all' || card.dataset.cat === cat) {
+          card.style.display = '';
+        } else {
+          card.style.display = 'none';
+        }
+      });
+
+      // Hide section titles that have no visible cards
+      document.querySelectorAll('.section-title').forEach(title => {
+        let next = title.nextElementSibling;
+        let hasVisible = false;
+        while (next && next.classList.contains('recipes-grid')) {
+          if ([...next.querySelectorAll('.recipe-card')].some(c => c.style.display !== 'none')) {
+            hasVisible = true;
+          }
+          next = next.nextElementSibling;
+        }
+        title.style.display = hasVisible ? '' : 'none';
+      });
+    }
+  </script>
+
+</body>
+</html>
