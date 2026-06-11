@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>⚔️ Faction Forge — Civilization Conflict Simulator</title>
+<style>
+  :root{
+    --bg:#0f1318; --panel:#181f28; --panel2:#1f2832; --edge:#2c3a48;
+    --txt:#d7e0ea; --dim:#7d8ea0; --acc:#e8b339; --red:#e05555; --green:#5dc878;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{background:var(--bg); color:var(--txt); font:14px/1.45 'Segoe UI',system-ui,sans-serif; min-height:100vh;}
+  h1{font-size:26px; letter-spacing:2px;}
+  h1 .gold{color:var(--acc);}
+  button{cursor:pointer; border:1px solid var(--edge); background:var(--panel2); color:var(--txt);
+    border-radius:6px; padding:7px 14px; font:inherit; transition:background .15s;}
+  button:hover{background:#2a3645;}
+  button.primary{background:var(--acc); border-color:var(--acc); color:#1a1408; font-weight:700;}
+  button.primary:hover{background:#f3c75e;}
+  button.danger{color:#f1a0a0;}
+  select,input[type=text]{background:#10161d; color:var(--txt); border:1px solid var(--edge); border-radius:5px; padding:6px 8px; font:inherit;}
+  input[type=color]{width:34px; height:30px; border:1px solid var(--edge); border-radius:5px; background:none; padding:2px; cursor:pointer;}
+  ::-webkit-scrollbar{width:9px;} ::-webkit-scrollbar-thumb{background:#324252; border-radius:5px;} ::-webkit-scrollbar-track{background:#141a21;}
+
+  /* ---------- setup screen ---------- */
+  #setup{max-width:1180px; margin:0 auto; padding:26px 20px 60px;}
+  #setup header{text-align:center; margin-bottom:18px;}
+  #setup header p{color:var(--dim); margin-top:4px;}
+  .controlsRow{display:flex; gap:14px; flex-wrap:wrap; justify-content:center; align-items:center;
+    background:var(--panel); border:1px solid var(--edge); border-radius:10px; padding:14px; margin-bottom:18px;}
+  .controlsRow label{color:var(--dim); margin-right:4px;}
+  #facGrid{display:grid; grid-template-columns:repeat(auto-fill,minmax(330px,1fr)); gap:14px; margin-bottom:20px;}
+  .facCard{background:var(--panel); border:1px solid var(--edge); border-radius:10px; padding:12px; position:relative;}
+  .facCard .head{display:flex; gap:8px; align-items:center; margin-bottom:10px;}
+  .facCard .head input[type=text]{flex:1; font-weight:700;}
+  .facCard .rmBtn{padding:4px 9px;}
+  .traitRow{display:grid; grid-template-columns:118px 1fr 34px; gap:8px; align-items:center; margin:3px 0;}
+  .traitRow .tname{color:var(--dim); font-size:12.5px; cursor:help;}
+  .traitRow .tval{text-align:right; font-variant-numeric:tabular-nums; color:var(--acc); font-size:12.5px;}
+  input[type=range]{-webkit-appearance:none; width:100%; height:5px; border-radius:3px; background:#33414f; outline:none;}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none; width:14px; height:14px; border-radius:50%; background:var(--acc); cursor:pointer; border:2px solid #0f1318;}
+  .startRow{text-align:center;}
+  .startRow button.primary{font-size:18px; padding:12px 44px;}
+  #howBox{margin-top:26px; background:var(--panel); border:1px solid var(--edge); border-radius:10px; padding:14px 18px; color:var(--dim); font-size:13px;}
+  #howBox summary{color:var(--txt); cursor:pointer; font-weight:600;}
+  #howBox li{margin:5px 0 5px 18px;}
+  #howBox b{color:var(--acc);}
+
+  /* ---------- game screen ---------- */
+  #game{display:none; height:100vh; flex-direction:column;}
+  #topbar{display:flex; align-items:center; gap:10px; padding:8px 14px; background:var(--panel); border-bottom:1px solid var(--edge); flex-wrap:wrap;}
+  #topbar .title{font-weight:800; letter-spacing:1px; color:var(--acc); margin-right:8px;}
+  #topbar .stat{color:var(--dim); font-size:13px;} #topbar .stat b{color:var(--txt);}
+  .spd{padding:5px 11px;} .spd.on{background:var(--acc); color:#1a1408; border-color:var(--acc); font-weight:700;}
+  #gameBody{flex:1; display:flex; min-height:0;}
+  #mapWrap{flex:1; display:flex; align-items:center; justify-content:center; background:#0a0e13; position:relative; min-width:0;}
+  #map{max-width:100%; max-height:100%; image-rendering:pixelated;}
+  #tip{position:absolute; pointer-events:none; background:rgba(12,16,22,.93); border:1px solid var(--edge);
+    border-radius:6px; padding:6px 10px; font-size:12.5px; display:none; z-index:5; white-space:nowrap;}
+  #side{width:372px; background:var(--panel); border-left:1px solid var(--edge); display:flex; flex-direction:column; min-height:0;}
+  #side h3{font-size:12px; text-transform:uppercase; letter-spacing:1.5px; color:var(--dim); padding:9px 12px 4px;}
+  #facStats{padding:0 10px;}
+  .fs{border:1px solid var(--edge); border-radius:8px; padding:7px 9px; margin-bottom:6px; background:var(--panel2); font-size:12.5px;}
+  .fs .nm{font-weight:700; display:flex; align-items:center; gap:7px;}
+  .fs .dot{width:11px; height:11px; border-radius:3px; display:inline-block;}
+  .fs .nums{color:var(--dim); margin-top:2px; display:flex; gap:10px; flex-wrap:wrap;}
+  .fs .nums b{color:var(--txt); font-weight:600;}
+  .fs .wars{margin-top:2px; font-size:12px;}
+  .fs.dead{opacity:.45;} .fs.dead .nm{text-decoration:line-through;}
+  #relWrap{padding:2px 12px;}
+  #relTable{border-collapse:collapse;}
+  #relTable td,#relTable th{width:26px; height:24px; text-align:center; font-size:11px; border:1px solid #11161c;}
+  #chart{width:100%; height:96px; display:block; background:#11161d; border-top:1px solid var(--edge);}
+  #log{flex:1; overflow-y:auto; padding:6px 12px 14px; font-size:12.5px; min-height:80px;}
+  #log .e{margin-bottom:5px; color:var(--dim);}
+  #log .e .yr{color:#566778; font-size:11px; margin-right:5px; font-variant-numeric:tabular-nums;}
+  #log .war{color:#f0b3b3;} #log .peace{color:#b9e2c4;} #log .death{color:#ff8d8d; font-weight:600;} #log .ally{color:#a8c8f0;} #log .err{color:#ff7;}
+
+  /* ---------- end overlay ---------- */
+  #endOverlay{display:none; position:fixed; inset:0; background:rgba(8,11,15,.88); z-index:50; align-items:center; justify-content:center;}
+  #endBox{background:var(--panel); border:1px solid var(--acc); border-radius:14px; padding:30px 38px; max-width:640px; width:92%; max-height:88vh; overflow-y:auto; text-align:center;}
+  #endBox h1{margin-bottom:4px;}
+  #endBox .reason{color:var(--dim); margin-bottom:16px;}
+  #endStats{display:flex; gap:18px; justify-content:center; flex-wrap:wrap; margin-bottom:16px;}
+  #endStats div{background:var(--panel2); border:1px solid var(--edge); border-radius:8px; padding:8px 16px;}
+  #endStats b{display:block; font-size:19px; color:var(--acc);}
+  #endChron{text-align:left; font-size:12.5px; color:var(--dim); background:#11161d; border-radius:8px; padding:10px 14px; margin-bottom:18px; max-height:200px; overflow-y:auto;}
+  #endChron div{margin:3px 0;}
+</style>
+</head>
+<body>
+
+<!-- ════════════════ SETUP ════════════════ -->
+<div id="setup">
+  <header>
+    <h1>⚔️ FACTION <span class="gold">FORGE</span></h1>
+    <p>Design rival civilizations, then sit back and watch history unfold — and go wrong.</p>
+  </header>
+
+  <div class="controlsRow">
+    <span><label>Game pace</label>
+      <select id="paceSel">
+        <option value="blitz">⚡ Blitz (~5–10 min)</option>
+        <option value="standard" selected>🕐 Standard (~20–40 min)</option>
+        <option value="epic">🏛️ Epic (~1 hour+)</option>
+        <option value="marathon">⏳ Marathon (several hours)</option>
+      </select>
+    </span>
+    <span><label>World size</label>
+      <select id="sizeSel">
+        <option value="small">Small</option>
+        <option value="medium" selected>Medium</option>
+        <option value="large">Large</option>
+      </select>
+    </span>
+    <button id="addFacBtn">＋ Add Faction</button>
+    <button id="randAllBtn">🎲 Randomize All Traits</button>
+  </div>
+
+  <div id="facGrid"></div>
+
+  <div class="startRow"><button class="primary" id="startBtn">⚔️ FORGE THE WORLD</button></div>
+
+  <details id="howBox">
+    <summary>How wars get justified (the simulation rules)</summary>
+    <ul>
+      <li>Each pair of neighbouring factions accumulates <b>justification (tension)</b> from six historical drivers:
+        <b>border friction</b> (expansionists rubbing shoulders), <b>holy rivalry</b> (two high-fervor faiths in contact),
+        <b>resource envy</b> (your neighbour sits on more gold deposits), <b>opportunism</b> (aggressive powers eye weak neighbours),
+        <b>old grudges</b> (lost wars demand revenge — amplified by Honor), and <b>land scarcity</b> (when the map runs out of free soil, everyone gets twitchy).</li>
+      <li><b>Aggression</b> lowers the justification a faction needs before declaring war. <b>Diplomacy</b> constantly decays tension, brokers alliances and earlier peace.</li>
+      <li><b>Education</b> drives technology → stronger, richer armies. <b>Industry</b> drives gold and growth capacity. <b>Militarism</b> sets how much of the nation is under arms. <b>Religious Fervor</b> adds zeal in battle but breeds holy wars.</li>
+      <li>Wars end through <b>exhaustion</b> — peace comes faster with diplomats at the table, slower with proud (high Honor) losers, and dominant aggressors may refuse peace entirely and annihilate the loser.</li>
+      <li>Victory: control <b>66% of the world</b>, be the last faction standing, or — if utopia breaks out — win a <b>Golden Age</b> by score after a long era of total peace.</li>
+    </ul>
+  </details>
+</div>
+
+<!-- ════════════════ GAME ════════════════ -->
+<div id="game">
+  <div id="topbar">
+    <span class="title">FACTION FORGE</span>
+    <span class="stat">Year <b id="yearLbl">1</b></span>
+    <span class="stat">Free land <b id="neutralLbl">100%</b></span>
+    <span class="stat">Wars fought <b id="warLbl">0</b></span>
+    <span style="flex:1"></span>
+    <button class="spd" id="pauseBtn">⏸ Pause</button>
+    <button class="spd on" data-s="1">1×</button>
+    <button class="spd" data-s="2">2×</button>
+    <button class="spd" data-s="4">4×</button>
+    <button class="spd" data-s="10">10×</button>
+    <button class="danger" id="quitBtn">✖ Abandon</button>
+  </div>
+  <div id="gameBody">
+    <div id="mapWrap">
+      <canvas id="map" width="960" height="600"></canvas>
+      <div id="tip"></div>
+    </div>
+    <div id="side">
+      <h3>Factions</h3>
+      <div id="facStats"></div>
+      <h3>Justification matrix <span style="text-transform:none;letter-spacing:0">(row → column)</span></h3>
+      <div id="relWrap"><table id="relTable"></table></div>
+      <h3>Power over time</h3>
+      <canvas id="chart" width="372" height="96"></canvas>
+      <h3>Chronicle</h3>
+      <div id="log"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════ END ════════════════ -->
+<div id="endOverlay">
+  <div id="endBox">
+    <h1 id="endTitle">Victory</h1>
+    <p class="reason" id="endReason"></p>
+    <div id="endStats"></div>
+    <div id="endChron"></div>
+    <button class="primary" id="newGameBtn">⚒️ New World</button>
+    <button id="watchBtn">👁 Keep Watching</button>
+  </div>
+</div>
+
+<script>
+'use strict';
+/* ───────────────────────── helpers ───────────────────────── */
+const $ = id => document.getElementById(id);
+const rnd = (a,b) => a + Math.random()*(b-a);
+const ri  = (a,b) => Math.floor(rnd(a,b+1));
+const clamp = (v,a,b) => v<a?a : v>b?b : v;
+const lerp = (a,b,t) => a + (b-a)*t;
+const pick = arr => arr[ri(0,arr.length-1)];
+const fmt = n => n>=1e6 ? (n/1e6).toFixed(1)+'M' : n>=1000 ? (n/1000).toFixed(1)+'k' : Math.round(n);
+
+function hexToRgb(h){ return [parseInt(h.slice(1,3),16), parseInt(h.slice(3,5),16), parseInt(h.slice(5,7),16)]; }
+
+const NAME_A = ['Val','Kor','Ash','Bel','Dra','Thal','Mor','Ery','Cal','Vor','Zan','Hel','Oss','Tyr','Quen','Mar','Ulth','Sera','Brand','Nor'];
+const NAME_B = ['en','ar','or','il','an','eth','um','ia','av','os'];
+const NAME_C = ['ia','heim','mark','dor','land','os','ium','gard','onia','aris','wick','strand'];
+function genName(){ return pick(NAME_A) + (Math.random()<0.5 ? pick(NAME_B) : '') + pick(NAME_C); }
+
+const PALETTE = ['#e74c3c','#3498db','#f1c40f','#9b59b6','#2ecc71','#e67e22','#1abc9c','#fd79a8'];
+
+const TRAITS = [
+  ['agg','Aggression','Lowers the justification needed to declare war; fuels opportunistic conquest.'],
+  ['exp','Expansionism','Faster land claiming — and more border friction with neighbours.'],
+  ['edu','Education','Technology growth: better armies, richer economy.'],
+  ['ind','Industry','Gold output and population capacity.'],
+  ['rel','Religious Fervor','Zeal in battle, but two fervent faiths in contact breed holy wars.'],
+  ['mil','Militarism','Share of the population kept under arms.'],
+  ['dip','Diplomacy','Decays tension, forges alliances, ends wars sooner.'],
+  ['hon','Honor & Pride','Long grudges, revenge wars, refusal to accept defeat.'],
+];
+
+const PRESETS = {
+  '— preset —':null,
+  'Warmongers':   {agg:90,exp:80,edu:30,ind:55,rel:30,mil:90,dip:10,hon:75},
+  'Merchants':    {agg:20,exp:55,edu:65,ind:90,rel:20,mil:35,dip:80,hon:30},
+  'Zealots':      {agg:70,exp:60,edu:25,ind:40,rel:95,mil:70,dip:15,hon:60},
+  'Scholars':     {agg:10,exp:35,edu:95,ind:60,rel:10,mil:30,dip:75,hon:25},
+  'Honorbound':   {agg:50,exp:45,edu:45,ind:50,rel:40,mil:65,dip:35,hon:95},
+  'Expansionists':{agg:55,exp:95,edu:40,ind:65,rel:25,mil:55,dip:30,hon:40},
+  'Isolationists':{agg:15,exp:20,edu:55,ind:70,rel:35,mil:50,dip:55,hon:50},
+  'Balanced':     {agg:50,exp:50,edu:50,ind:50,rel:50,mil:50,dip:50,hon:50},
+};
+
+const PACES = { blitz:5, standard:1.6, epic:0.7, marathon:0.28 };
+const SIZES = { small:[84,52], medium:[108,68], large:[136,84] };
+
+/* ───────────────────────── setup state ───────────────────────── */
+const cfg = { factions: [] };
+
+function randTraits(){ const t={}; for(const [k] of TRAITS) t[k]=ri(5,95); return t; }
+function freeColor(){
+  for(const c of PALETTE) if(!cfg.factions.some(f=>f.color===c)) return c;
+  return PALETTE[cfg.factions.length % PALETTE.length];
+}
+function addFaction(traits){
+  if(cfg.factions.length>=8) return;
+  cfg.factions.push({ name:genName(), color:freeColor(), traits: traits||randTraits() });
+  renderSetup();
+}
+
+function renderSetup(){
+  const grid = $('facGrid'); grid.innerHTML='';
+  cfg.factions.forEach((f,i)=>{
+    const card = document.createElement('div'); card.className='facCard';
+    const head = document.createElement('div'); head.className='head';
+
+    const col = document.createElement('input'); col.type='color'; col.value=f.color;
+    col.oninput = ()=>{ f.color = col.value; };
+    const nm = document.createElement('input'); nm.type='text'; nm.value=f.name; nm.maxLength=18;
+    nm.oninput = ()=>{ f.name = nm.value || 'Unnamed'; };
+    const dice = document.createElement('button'); dice.textContent='🎲'; dice.title='Random name';
+    dice.onclick = ()=>{ f.name = genName(); nm.value = f.name; };
+    const pre = document.createElement('select');
+    for(const k in PRESETS){ const o=document.createElement('option'); o.textContent=k; pre.appendChild(o); }
+    pre.onchange = ()=>{ const p=PRESETS[pre.value]; if(p){ f.traits={...p}; renderSetup(); } };
+    const rm = document.createElement('button'); rm.className='rmBtn danger'; rm.textContent='✖'; rm.title='Remove faction';
+    rm.onclick = ()=>{ if(cfg.factions.length>2){ cfg.factions.splice(i,1); renderSetup(); } };
+
+    head.append(col,nm,dice,pre,rm); card.appendChild(head);
+
+    for(const [key,label,tipTxt] of TRAITS){
+      const row=document.createElement('div'); row.className='traitRow';
+      const lb=document.createElement('span'); lb.className='tname'; lb.textContent=label; lb.title=tipTxt;
+      const sl=document.createElement('input'); sl.type='range'; sl.min=0; sl.max=100; sl.value=f.traits[key];
+      const vl=document.createElement('span'); vl.className='tval'; vl.textContent=f.traits[key];
+      sl.oninput=()=>{ f.traits[key]=+sl.value; vl.textContent=sl.value; };
+      row.append(lb,sl,vl); card.appendChild(row);
+    }
+    grid.appendChild(card);
+  });
+}
+
+$('addFacBtn').onclick = ()=>addFaction();
+$('randAllBtn').onclick = ()=>{ cfg.factions.forEach(f=>f.traits=randTraits()); renderSetup(); };
+
+addFaction(PRESETS['Warmongers']);
+addFaction(PRESETS['Merchants']);
+addFaction(PRESETS['Zealots']);
+addFaction(PRESETS['Scholars']);
+
+/* ───────────────────────── simulation state ───────────────────────── */
+let S = null;            // the whole world
+let speed = 1, paused = false, inGame = false;
+
+const TERRAIN_COL = { 0:[26,46,72], 1:[88,112,66], 2:[58,86,52], 3:[112,106,98] };
+// terrain: 0 water, 1 plains, 2 forest, 3 mountain
+
+function valueNoise(w,h,scale){
+  const gw=Math.ceil(w/scale)+2, gh=Math.ceil(h/scale)+2;
+  const g=new Float32Array(gw*gh); for(let i=0;i<g.length;i++) g[i]=Math.random();
+  return (x,y)=>{
+    const fx=x/scale, fy=y/scale, x0=Math.floor(fx), y0=Math.floor(fy);
+    const tx=fx-x0, ty=fy-y0, sx=tx*tx*(3-2*tx), sy=ty*ty*(3-2*ty);
+    const v=(a,b)=>g[b*gw+a];
+    return lerp(lerp(v(x0,y0),v(x0+1,y0),sx), lerp(v(x0,y0+1),v(x0+1,y0+1),sx), sy);
+  };
+}
+
+function initSim(){
+  const [w,h] = SIZES[$('sizeSel').value];
+  const n = cfg.factions.length;
+  S = {
+    w,h, n, pace: PACES[$('paceSel').value],
+    terrain: new Uint8Array(w*h), owner: new Int16Array(w*h).fill(-1), res: new Uint8Array(w*h),
+    factions: [], wars: [], t:0, warCount:0, landTiles:0, neutralLand:0,
+    tension:[], grudge:[], truce:[], ally:[],
+    accD:0, accC:0, accH:0, lastConflictT:0, dirty:true,
+    flashes:[], powerHist:[], chronicle:[], over:false,
+  };
+  for(let i=0;i<n;i++){
+    S.tension.push(new Float32Array(n)); S.grudge.push(new Float32Array(n));
+    S.truce.push(new Float32Array(n));   S.ally.push(new Uint8Array(n));
+  }
+
+  // ---- terrain generation ----
+  const n1=valueNoise(w,h,18), n2=valueNoise(w,h,8), n3=valueNoise(w,h,4), nf=valueNoise(w,h,10);
+  for(let y=0;y<h;y++) for(let x=0;x<w;x++){
+    const nx=x/w*2-1, ny=y/h*2-1;
+    const edge=Math.pow(Math.max(Math.abs(nx),Math.abs(ny)),3)*0.5;
+    const e=(n1(x,y)*0.55 + n2(x,y)*0.3 + n3(x,y)*0.15) - edge;
+    const i=y*w+x;
+    if(e<0.38){ S.terrain[i]=0; continue; }
+    S.landTiles++;
+    if(e>0.72) S.terrain[i]=3;
+    else if(nf(x,y)>0.62) S.terrain[i]=2;
+    else S.terrain[i]=1;
+    if(Math.random() < (S.terrain[i]===3?0.035:0.012)) S.res[i]=1; // gold deposit
+  }
+  S.neutralLand = S.landTiles;
+
+  // ---- factions + capitals (spread apart) ----
+  const caps=[];
+  for(let f=0; f<n; f++){
+    let best=-1, bestD=-1;
+    for(let tries=0; tries<60; tries++){
+      const i=ri(0,w*h-1);
+      if(S.terrain[i]===0 || S.terrain[i]===3) continue;
+      let d=1e9;
+      for(const c of caps){ const dx=(i%w)-(c%w), dy=Math.floor(i/w)-Math.floor(c/w); d=Math.min(d, dx*dx+dy*dy); }
+      if(caps.length===0) d=rnd(0,1e9);
+      if(d>bestD){ bestD=d; best=i; }
+    }
+    caps.push(best);
+    const src=cfg.factions[f];
+    S.factions.push({
+      id:f, name:src.name, color:src.color, rgb:hexToRgb(src.color), tr:{...src.traits},
+      pop:120, gold:50, army:15, tech:src.traits.edu*0.05,
+      tilesCount:0, goldTiles:0, peakTiles:0, capital:best, frontier:[],
+      dead:false, deathYear:0, expAcc:0,
+    });
+  }
+  // claim starting territory (radius 2)
+  for(let f=0; f<n; f++){
+    const c=caps[f], cx=c%w, cy=Math.floor(c/w);
+    for(let dy=-2;dy<=2;dy++) for(let dx=-2;dx<=2;dx++){
+      const x=cx+dx, y=cy+dy;
+      if(x<0||y<0||x>=w||y>=h) continue;
+      const i=y*w+x;
+      if(S.terrain[i]!==0 && S.owner[i]===-1 && dx*dx+dy*dy<=5) setOwner(i,f,false);
+    }
+  }
+  S.factions.forEach(f=>{ if(S.owner[f.capital]!==f.id) setOwner(f.capital,f.id,false); });
+
+  buildUI();
+  addLog(`🌍 The world is forged. ${n} nations awaken: ${S.factions.map(facSpan).join(', ')}.`,'');
+  speed=1; paused=false; inGame=true;
+  document.querySelectorAll('.spd[data-s]').forEach(b=>b.classList.toggle('on', b.dataset.s==='1'));
+  $('pauseBtn').textContent='⏸ Pause';
+  $('setup').style.display='none'; $('game').style.display='flex'; $('endOverlay').style.display='none';
+}
+
+const NB = i => { // 4-neighbours, -1 padded
+  const w=S.w, x=i%w, y=(i-x)/w;
+  return [ x>0?i-1:-1, x<w-1?i+1:-1, y>0?i-w:-1, y<S.h-1?i+w:-1 ];
+};
+
+function setOwner(i, fid, flash){
+  const prev=S.owner[i];
+  if(prev===fid) return;
+  if(prev>=0){ const p=S.factions[prev]; p.tilesCount--; if(S.res[i]) p.goldTiles--; }
+  else S.neutralLand--;
+  if(fid>=0){
+    const f=S.factions[fid]; f.tilesCount++; f.peakTiles=Math.max(f.peakTiles,f.tilesCount);
+    if(S.res[i]) f.goldTiles++;
+    for(const nb of NB(i)){
+      if(nb>=0 && S.owner[nb]===-1 && S.terrain[nb]!==0){
+        if(f.frontier.length<4000) f.frontier.push(nb);
+        else f.frontier[ri(0,f.frontier.length-1)]=nb;
+      }
+    }
+  } else S.neutralLand++;
+  S.owner[i]=fid; S.dirty=true;
+  if(flash && S.flashes.length<400) S.flashes.push({i, t:performance.now()});
+}
+
+const isAdjTo = (i,fid) => NB(i).some(nb=>nb>=0 && S.owner[nb]===fid);
+const power = f => f.army*(0.5+f.tech/150) + 1;
+const atWar = (a,b) => S.wars.some(wr=>(wr.a===a&&wr.b===b)||(wr.a===b&&wr.b===a));
+const facSpan = f => `<span style="color:${f.color};font-weight:600">${f.name}</span>`;
+
+/* ───────────────────────── per-tick economy ───────────────────────── */
+function econTick(dt){
+  for(const f of S.factions){
+    if(f.dead) continue;
+    const tr=f.tr;
+    const cap = f.tilesCount*(18 + tr.ind*0.25 + f.tech*0.3) + 50;
+    f.pop += f.pop*0.018*dt*(1 - f.pop/cap);
+    f.pop = Math.max(f.pop, 10);
+    f.gold += (f.pop*0.012*(0.5+tr.ind/100) + f.goldTiles*1.5 + f.pop*0.004*(f.tech/50)) * dt;
+    f.gold -= f.army*0.01*dt;                       // upkeep
+    if(f.gold<0){ f.gold=0; f.army*=Math.pow(0.995,dt); }  // unpaid armies desert
+    f.tech += dt*0.012*(tr.edu/100)*(1+Math.log10(1+f.pop/200))*(1 - f.tech/250);
+
+    const inWar = S.wars.some(wr=>wr.a===f.id||wr.b===f.id);
+    const target = f.pop*(0.05 + tr.mil*0.0012);
+    if(f.army<target){
+      let rec = Math.min(target-f.army, f.pop*0.01*dt*(0.5+tr.ind/200)*(inWar?2:1), f.gold);
+      if(rec>0){ f.army+=rec; f.gold-=rec; }
+    }
+
+    // expansion into neutral land
+    if(f.frontier.length){
+      const gated = f.pop > f.tilesCount*3 ? 1 : 0.25;
+      f.expAcc += (0.15 + (tr.exp/100)*1.1) * Math.sqrt(f.tilesCount) * 0.45 * gated * dt;
+      while(f.expAcc>=1){
+        f.expAcc--;
+        for(let tries=0; tries<6 && f.frontier.length; tries++){
+          const k=ri(0,f.frontier.length-1);
+          const idx=f.frontier[k];
+          f.frontier[k]=f.frontier[f.frontier.length-1]; f.frontier.pop();
+          if(S.owner[idx]===-1 && S.terrain[idx]!==0 && isAdjTo(idx,f.id)){ setOwner(idx,f.id,false); break; }
+        }
+      }
+    }
+  }
+}
+
+/* ───────────────────────── diplomacy & war justification (every 2s) ───────────────────────── */
+function diploTick(I){
+  const n=S.n, w=S.w, h=S.h;
+  // shared border counts
+  const border=[]; for(let i=0;i<n;i++) border.push(new Int32Array(n));
+  for(let y=0;y<h;y++) for(let x=0;x<w;x++){
+    const i=y*w+x, a=S.owner[i]; if(a<0) continue;
+    if(x<w-1){ const b=S.owner[i+1]; if(b>=0&&b!==a){ border[a][b]++; border[b][a]++; } }
+    if(y<h-1){ const b=S.owner[i+w]; if(b>=0&&b!==a){ border[a][b]++; border[b][a]++; } }
+  }
+  const neutralRatio = S.neutralLand/S.landTiles;
+
+  for(let a=0;a<n;a++){
+    const A=S.factions[a]; if(A.dead) continue;
+    for(let b=0;b<n;b++){
+      if(a===b) continue;
+      const B=S.factions[b]; if(B.dead) continue;
+
+      // grudges fade — faster for diplomats
+      S.grudge[a][b] *= Math.pow(1-0.0015*(0.5+A.tr.dip/200), I);
+
+      if(S.ally[a][b]){
+        S.tension[a][b]*=Math.pow(0.92,I);
+        if(S.tension[a][b]>45 || S.tension[b][a]>45){
+          S.ally[a][b]=S.ally[b][a]=0;
+          if(a<b) addLog(`💔 The alliance between ${facSpan(A)} and ${facSpan(B)} collapses.`,'ally');
+        }
+        continue;
+      }
+
+      const tr=A.tr, shared=border[a][b];
+      const d={};
+      d.simmer = tr.agg*0.05 + rnd(0,2);
+      if(shared>0) d.border = Math.min(18, shared*0.35)*(0.2+tr.exp/100);
+      if(tr.rel>30 && B.tr.rel>30 && shared>0) d.holy = (tr.rel/100)*(B.tr.rel/100)*12;
+      if(B.goldTiles>A.goldTiles && shared>0) d.envy = Math.min(14,(B.goldTiles-A.goldTiles)*1.2)*(0.3+tr.ind/150);
+      const pr = power(A)/power(B);
+      if(pr>1.5 && tr.agg>35) d.opp = Math.min(12,(pr-1.5)*6)*(tr.agg/100);
+      const g=S.grudge[a][b];
+      if(g>1) d.grudge = Math.min(30,g*0.2)*(0.4+tr.hon/100);
+      if(neutralRatio<0.12 && shared>0) d.scarce = (1-neutralRatio/0.12)*(8+tr.exp*0.12);
+
+      let sum=0; for(const k in d) sum+=d[k];
+      const decay = 1 + (tr.dip + B.tr.dip)*0.015;
+      S.tension[a][b] = clamp(S.tension[a][b] + (sum*0.25 - decay)*I, 0, 160);
+
+      // ---- declare war? ----
+      if(atWar(a,b) || S.t<S.truce[a][b] || shared===0) continue;
+      const thr = 105 - tr.agg*0.5;
+      const desperate = (d.grudge||0)>12;
+      if(S.tension[a][b]>thr && (pr>0.55 || desperate) && A.army>20){
+        let cb='border', best=-1;
+        for(const k in d){ if(k!=='simmer' && d[k]>best){ best=d[k]; cb=k; } }
+        declareWar(a,b,cb);
+      }
+    }
+  }
+
+  // alliances between friendly diplomats
+  for(let a=0;a<n;a++) for(let b=a+1;b<n;b++){
+    const A=S.factions[a], B=S.factions[b];
+    if(A.dead||B.dead||S.ally[a][b]||atWar(a,b)) continue;
+    if(A.tr.dip>60 && B.tr.dip>60 && S.tension[a][b]<14 && S.tension[b][a]<14 && border[a][b]>0 && Math.random()<0.02*I){
+      S.ally[a][b]=S.ally[b][a]=1;
+      addLog(`🤝 ${facSpan(A)} and ${facSpan(B)} sign a pact of alliance.`,'ally');
+    }
+  }
+}
+
+const CB_TEXT = {
+  border:'a territorial war over contested borders',
+  holy:'a holy war against the unbelievers',
+  envy:'a war for gold and resources',
+  opp:'an opportunistic war of conquest',
+  grudge:'a war of revenge for past humiliations',
+  scarce:'a war for living space — the land is full',
+  simmer:'a war of naked aggression',
+  ally:'war in honor of their alliance',
+};
+
+function declareWar(a,b,cb){
+  if(atWar(a,b)) return;
+  const A=S.factions[a], B=S.factions[b];
+  S.wars.push({a,b,start:S.t,exhA:0,exhB:0,lostA:0,lostB:0,cb,lastFlip:S.t});
+  S.warCount++; S.lastConflictT=S.t;
+  const msg=`⚔️ ${facSpan(A)} declares ${CB_TEXT[cb]||'war'} on ${facSpan(B)}!`;
+  addLog(msg,'war'); chron(msg);
+  if(cb!=='ally'){
+    for(let c=0;c<S.n;c++){
+      if(c!==a && c!==b && S.ally[b][c] && !S.factions[c].dead && !atWar(c,a)) declareWar(c,a,'ally');
+    }
+  }
+}
+
+/* ───────────────────────── combat & peace (every 1s) ───────────────────────── */
+function combatTick(I){
+  for(const wr of [...S.wars]){
+    if(!S.wars.includes(wr)) continue;            // may have ended via elimination
+    const A=S.factions[wr.a], B=S.factions[wr.b];
+    if(A.dead||B.dead){ S.wars=S.wars.filter(x=>x!==wr); continue; }
+
+    // gather both frontlines in one pass
+    const edgeA=[], edgeB=[];
+    for(let i=0;i<S.owner.length;i++){
+      const o=S.owner[i];
+      if(o===wr.a){ if(isAdjTo(i,wr.b)) edgeA.push(i); }
+      else if(o===wr.b){ if(isAdjTo(i,wr.a)) edgeB.push(i); }
+    }
+    if(edgeA.length||edgeB.length){
+      const sA=power(A)*(1+A.tr.rel/400)*rnd(0.75,1.25);
+      const sB=power(B)*(1+B.tr.rel/400)*rnd(0.75,1.25);
+      const ratio=sA/sB;
+      const stronger = ratio>1 ? wr.a : wr.b;
+      const victimEdge = ratio>1 ? edgeB : edgeA;
+      const r = ratio>1 ? ratio : 1/ratio;
+      let nFlip = Math.floor((r-1)*4*I); if(Math.random()<((r-1)*4*I)%1) nFlip++;
+      nFlip = Math.min(nFlip, victimEdge.length, 8);
+      for(let k=0;k<nFlip;k++){
+        const idx=victimEdge[ri(0,victimEdge.length-1)];
+        const ter=S.terrain[idx];
+        if(ter===3 && Math.random()<0.6) continue;   // mountains hold
+        if(ter===2 && Math.random()<0.3) continue;   // forests resist
+        const victim = S.owner[idx];
+        setOwner(idx, stronger, true);
+        wr.lastFlip=S.t; S.lastConflictT=S.t;
+        if(ratio>1) wr.lostB++; else wr.lostA++;
+        const V=S.factions[victim];
+        if(idx===V.capital){
+          V.pop*=0.85;
+          const wexh = victim===wr.a ? 'exhA' : 'exhB'; wr[wexh]+=0.35;
+          let nc=-1; for(let s=0;s<200;s++){ const j=ri(0,S.owner.length-1); if(S.owner[j]===victim){ nc=j; break; } }
+          V.capital=nc;
+          const msg=`🔥 The capital of ${facSpan(V)} has fallen to ${facSpan(S.factions[stronger])}!`;
+          addLog(msg,'war'); chron(msg);
+        }
+      }
+      // casualties + exhaustion
+      const stale = (S.t-wr.lastFlip>60) ? 3 : 1;
+      const lossA=Math.min(A.army*0.06, sB*0.015)*rnd(0.8,1.2)*I;
+      const lossB=Math.min(B.army*0.06, sA*0.015)*rnd(0.8,1.2)*I;
+      A.army=Math.max(0,A.army-lossA); A.pop=Math.max(10,A.pop-lossA*0.4);
+      B.army=Math.max(0,B.army-lossB); B.pop=Math.max(10,B.pop-lossB*0.4);
+      wr.exhA += lossA/(A.army+200) + 0.0015*stale*I;
+      wr.exhB += lossB/(B.army+200) + 0.0015*stale*I;
+    } else {
+      wr.exhA+=0.001*I; wr.exhB+=0.001*I; // no contact — phoney war winds down
+    }
+
+    if(B.tilesCount<=0){ eliminate(B,A); continue; }
+    if(A.tilesCount<=0){ eliminate(A,B); continue; }
+
+    // ---- sue for peace? ----
+    const dur=S.t-wr.start;
+    if(dur>25){
+      const loser = wr.lostA>wr.lostB ? A : B;
+      const winner = loser===A ? B : A;
+      const score=(wr.exhA+wr.exhB)*((A.tr.dip+B.tr.dip)/200+0.4);
+      const resist=0.9 + loser.tr.hon/300;
+      const force = wr.exhA+wr.exhB>3.5;
+      if((score>resist && Math.random()<0.08) || force){
+        // dominant aggressors may refuse peace and push for annihilation
+        const wRatio=power(winner)/power(loser);
+        if(!force && wRatio>2.5 && winner.tr.agg>70 && Math.random()<0.6) continue;
+        makePeace(wr);
+      }
+    }
+  }
+}
+
+function makePeace(wr){
+  const A=S.factions[wr.a], B=S.factions[wr.b];
+  const yrs=Math.round((S.t-wr.start)*0.25);
+  const loser = wr.lostA>wr.lostB ? A : B;
+  const winner = loser===A ? B : A;
+  const lost = Math.max(wr.lostA,wr.lostB);
+  S.grudge[loser.id][winner.id] += (lost*1.5+15)*(0.5+loser.tr.hon/150);
+  S.truce[wr.a][wr.b]=S.truce[wr.b][wr.a]=S.t+150;
+  S.tension[wr.a][wr.b]*=0.3; S.tension[wr.b][wr.a]*=0.3;
+  S.wars=S.wars.filter(x=>x!==wr); S.lastConflictT=S.t;
+  let msg=`🕊️ ${facSpan(A)} and ${facSpan(B)} sign peace after ${yrs} years.`;
+  if(lost>2) msg+=` ${facSpan(loser)} cedes ${lost} provinces — and nurses a grudge.`;
+  addLog(msg,'peace'); chron(msg);
+}
+
+function eliminate(V,K){
+  V.dead=true; V.deathYear=year(); V.pop=0; V.army=0; V.frontier=[];
+  S.wars=S.wars.filter(wr=>wr.a!==V.id && wr.b!==V.id);
+  for(let i=0;i<S.n;i++){ S.ally[V.id][i]=S.ally[i][V.id]=0; }
+  S.lastConflictT=S.t;
+  const msg=`💀 ${facSpan(V)} has been annihilated by ${facSpan(K)}! Their name passes into legend.`;
+  addLog(msg,'death'); chron(msg);
+}
+
+/* ───────────────────────── victory ───────────────────────── */
+function victoryCheck(){
+  if(S.over) return;
+  const alive=S.factions.filter(f=>!f.dead);
+  if(alive.length===1) return endGame(alive[0],'Last nation standing — total conquest of all rivals.');
+  for(const f of alive) if(f.tilesCount>S.landTiles*0.66)
+    return endGame(f,'Domination — two-thirds of the known world under one banner.');
+  if(!S.wars.length && S.neutralLand/S.landTiles<0.06 && S.t-S.lastConflictT>350){
+    const best=alive.slice().sort((a,b)=>(b.tilesCount*2+b.pop*0.01+b.tech)-(a.tilesCount*2+a.pop*0.01+a.tech))[0];
+    return endGame(best,'Golden Age — a long era of total peace; greatest civilization wins by score.');
+  }
+  if(S.t>20000){
+    const best=alive.slice().sort((a,b)=>b.tilesCount-a.tilesCount)[0];
+    return endGame(best,'The ages themselves grew weary — victory by historical weight.');
+  }
+}
+
+function endGame(winner,reason){
+  S.over=true; paused=true;
+  $('endTitle').innerHTML=`👑 ${facSpan(winner)} triumphs`;
+  $('endReason').textContent=reason;
+  const dead=S.factions.filter(f=>f.dead);
+  $('endStats').innerHTML=
+    `<div><b>${year()}</b>years of history</div>`+
+    `<div><b>${S.warCount}</b>wars fought</div>`+
+    `<div><b>${dead.length}</b>nations destroyed</div>`+
+    `<div><b>${Math.round(winner.tilesCount/S.landTiles*100)}%</b>of the world held</div>`;
+  $('endChron').innerHTML = S.chronicle.length
+    ? S.chronicle.slice(-25).map(c=>`<div><span style="color:#566778">Y${c.y}</span> ${c.m}</div>`).join('')
+    : '<div>A quiet history — remarkably few alarms and excursions.</div>';
+  $('endOverlay').style.display='flex';
+}
+
+/* ───────────────────────── logging ───────────────────────── */
+const year = () => Math.floor(S.t*0.25)+1;
+function addLog(html, cls){
+  const log=$('log'); if(!log) return;
+  const e=document.createElement('div'); e.className='e '+(cls||'');
+  e.innerHTML=`<span class="yr">Y${S?year():0}</span>${html}`;
+  log.prepend(e);
+  while(log.children.length>200) log.lastChild.remove();
+}
+function chron(msg){ S.chronicle.push({y:year(), m:msg}); }
+
+/* ───────────────────────── master tick ───────────────────────── */
+function tick(dt){
+  if(S.over) return;
+  S.t+=dt;
+  econTick(dt);
+  S.accC+=dt; while(S.accC>=1){ S.accC-=1; combatTick(1); victoryCheck(); }
+  S.accD+=dt; while(S.accD>=2){ S.accD-=2; diploTick(2); }
+  S.accH+=dt; while(S.accH>=5){
+    S.accH-=5;
+    S.powerHist.push({t:S.t, p:S.factions.map(f=>f.dead?0:power(f)+f.pop*0.05+f.tilesCount*0.5)});
+    if(S.powerHist.length>800) S.powerHist=S.powerHist.filter((_,i)=>i%2===0);
+  }
+}
+
+/* ───────────────────────── rendering ───────────────────────── */
+const mapCv=$('map'), mctx=mapCv.getContext('2d');
+let oCv=null, octx=null, lastUI=0, lastRel=0, lastChart=0, tipTile=-1;
+
+function rebuildImage(){
+  if(!oCv || oCv.width!==S.w){ oCv=document.createElement('canvas'); oCv.width=S.w; oCv.height=S.h; octx=oCv.getContext('2d'); }
+  const img=octx.createImageData(S.w,S.h), d=img.data;
+  for(let i=0;i<S.owner.length;i++){
+    const tc=TERRAIN_COL[S.terrain[i]], o=S.owner[i];
+    let r=tc[0],g=tc[1],b=tc[2];
+    if(o>=0){ const fc=S.factions[o].rgb; r=lerp(r,fc[0],0.62); g=lerp(g,fc[1],0.62); b=lerp(b,fc[2],0.62); }
+    const j=i*4; d[j]=r; d[j+1]=g; d[j+2]=b; d[j+3]=255;
+  }
+  octx.putImageData(img,0,0);
+  S.dirty=false;
+}
+
+function render(now){
+  if(!S) return;
+  if(S.dirty) rebuildImage();
+  const W=mapCv.width,H=mapCv.height;
+  const ts=Math.min(W/S.w,H/S.h), ox=(W-S.w*ts)/2, oy=(H-S.h*ts)/2;
+  mctx.fillStyle='#0a0e13'; mctx.fillRect(0,0,W,H);
+  mctx.imageSmoothingEnabled=false;
+  mctx.drawImage(oCv,0,0,S.w,S.h, ox,oy,S.w*ts,S.h*ts);
+
+  // gold deposits
+  mctx.fillStyle='rgba(255,210,70,0.9)';
+  for(let i=0;i<S.res.length;i++) if(S.res[i] && S.terrain[i]!==0){
+    const x=i%S.w, y=(i-x)/S.w;
+    mctx.fillRect(ox+(x+0.32)*ts, oy+(y+0.32)*ts, ts*0.36, ts*0.36);
+  }
+  // capitals
+  for(const f of S.factions){
+    if(f.dead||f.capital<0) continue;
+    const x=f.capital%S.w, y=(f.capital-x)/S.w, cx=ox+(x+0.5)*ts, cy=oy+(y+0.5)*ts, r=Math.max(3,ts*0.8);
+    mctx.beginPath();
+    mctx.moveTo(cx,cy-r); mctx.lineTo(cx+r,cy); mctx.lineTo(cx,cy+r); mctx.lineTo(cx-r,cy); mctx.closePath();
+    mctx.fillStyle=f.color; mctx.fill();
+    mctx.lineWidth=1.5; mctx.strokeStyle='#fff'; mctx.stroke();
+  }
+  // battle flashes
+  S.flashes=S.flashes.filter(fl=>now-fl.t<600);
+  for(const fl of S.flashes){
+    const a=1-(now-fl.t)/600, x=fl.i%S.w, y=(fl.i-x)/S.w;
+    mctx.fillStyle=`rgba(255,90,60,${a*0.8})`;
+    mctx.fillRect(ox+x*ts,oy+y*ts,ts,ts);
+  }
+
+  if(now-lastUI>250){ lastUI=now; updateHUD(); }
+  if(now-lastRel>900){ lastRel=now; updateRelTable(); }
+  if(now-lastChart>1500){ lastChart=now; drawChart(); }
+}
+
+function buildUI(){
+  $('log').innerHTML='';
+  const box=$('facStats'); box.innerHTML='';
+  for(const f of S.factions){
+    const d=document.createElement('div'); d.className='fs'; d.id='fs'+f.id;
+    d.innerHTML=`<div class="nm"><span class="dot" style="background:${f.color}"></span>${f.name}</div>
+      <div class="nums"></div><div class="wars"></div>`;
+    box.appendChild(d);
+  }
+  updateHUD(); updateRelTable(); drawChart();
+}
+
+function updateHUD(){
+  $('yearLbl').textContent=year();
+  $('neutralLbl').textContent=Math.round(S.neutralLand/S.landTiles*100)+'%';
+  $('warLbl').textContent=S.warCount;
+  for(const f of S.factions){
+    const d=$('fs'+f.id); if(!d) continue;
+    d.classList.toggle('dead',f.dead);
+    const nums=d.querySelector('.nums'), wars=d.querySelector('.wars');
+    if(f.dead){ nums.innerHTML=`Annihilated in year ${f.deathYear}`; wars.innerHTML=''; continue; }
+    nums.innerHTML=`<span>⬢ <b>${f.tilesCount}</b></span><span>👥 <b>${fmt(f.pop)}</b></span>`+
+      `<span>⚔️ <b>${fmt(f.army)}</b></span><span>🔬 <b>${f.tech.toFixed(1)}</b></span><span>💰 <b>${fmt(f.gold)}</b></span>`;
+    const bits=[];
+    for(const wr of S.wars){
+      if(wr.a===f.id) bits.push(`<span style="color:#f08a8a">at war with ${S.factions[wr.b].name}</span>`);
+      else if(wr.b===f.id) bits.push(`<span style="color:#f08a8a">at war with ${S.factions[wr.a].name}</span>`);
+    }
+    for(let i=0;i<S.n;i++) if(S.ally[f.id][i]&&i>f.id) bits.push(`<span style="color:#9fd0a8">allied with ${S.factions[i].name}</span>`);
+    wars.innerHTML=bits.join(' · ');
+  }
+}
+
+function updateRelTable(){
+  const tb=$('relTable');
+  let html='<tr><th></th>'+S.factions.map(f=>`<th style="color:${f.color}" title="${f.name}">${f.name[0]}</th>`).join('')+'</tr>';
+  for(const A of S.factions){
+    html+=`<tr><th style="color:${A.color}" title="${A.name}">${A.name[0]}</th>`;
+    for(const B of S.factions){
+      if(A.id===B.id){ html+='<td style="background:#1b232d"></td>'; continue; }
+      if(A.dead||B.dead){ html+='<td></td>'; continue; }
+      let bg,txt='';
+      if(atWar(A.id,B.id)){ bg='#8e2f2f'; txt='⚔'; }
+      else if(S.ally[A.id][B.id]){ bg='#2f6e3f'; txt='🤝'; }
+      else{
+        const tn=S.tension[A.id][B.id], thr=105-A.tr.agg*0.5;
+        const heat=clamp(tn/thr,0,1);
+        bg=`rgb(${Math.round(40+heat*150)},${Math.round(60-heat*20)},${Math.round(50-heat*15)})`;
+        txt=Math.round(tn);
+      }
+      html+=`<td style="background:${bg}" title="${A.name} → ${B.name}: ${Math.round(S.tension[A.id][B.id])} justification">${txt}</td>`;
+    }
+    html+='</tr>';
+  }
+  tb.innerHTML=html;
+}
+
+const chCv=$('chart'), chx=chCv.getContext('2d');
+function drawChart(){
+  const W=chCv.width,H=chCv.height;
+  chx.fillStyle='#11161d'; chx.fillRect(0,0,W,H);
+  const hist=S.powerHist; if(hist.length<2) return;
+  let max=1; for(const s of hist) for(const v of s.p) max=Math.max(max,v);
+  for(let f=0;f<S.n;f++){
+    chx.beginPath(); chx.strokeStyle=S.factions[f].color; chx.lineWidth=1.5;
+    hist.forEach((s,i)=>{
+      const x=i/(hist.length-1)*(W-8)+4, y=H-4-(s.p[f]/max)*(H-10);
+      i?chx.lineTo(x,y):chx.moveTo(x,y);
+    });
+    chx.stroke();
+  }
+}
+
+/* ───────────────────────── tooltip ───────────────────────── */
+mapCv.addEventListener('mousemove',e=>{
+  if(!S) return;
+  const rect=mapCv.getBoundingClientRect();
+  const sx=mapCv.width/rect.width, sy=mapCv.height/rect.height;
+  const W=mapCv.width,H=mapCv.height, ts=Math.min(W/S.w,H/S.h), ox=(W-S.w*ts)/2, oy=(H-S.h*ts)/2;
+  const tx=Math.floor(((e.clientX-rect.left)*sx-ox)/ts), ty=Math.floor(((e.clientY-rect.top)*sy-oy)/ts);
+  const tip=$('tip');
+  if(tx<0||ty<0||tx>=S.w||ty>=S.h){ tip.style.display='none'; return; }
+  const i=ty*S.w+tx, o=S.owner[i];
+  const terName=['Ocean','Plains','Forest','Mountains'][S.terrain[i]];
+  let txt=terName + (S.res[i]?' · 💰 gold deposit':'');
+  if(o>=0){ const f=S.factions[o]; txt=`<span style="color:${f.color};font-weight:700">${f.name}</span><br>${txt}`+(i===f.capital?' · ★ Capital':''); }
+  tip.innerHTML=txt;
+  tip.style.display='block';
+  const wrap=$('mapWrap').getBoundingClientRect();
+  tip.style.left=(e.clientX-wrap.left+14)+'px';
+  tip.style.top=(e.clientY-wrap.top+10)+'px';
+});
+mapCv.addEventListener('mouseleave',()=>{ $('tip').style.display='none'; });
+
+/* ───────────────────────── main loop & controls ───────────────────────── */
+let lastFrame=performance.now(), acc=0;
+function frame(now){
+  if(inGame && S && !paused && !S.over){
+    const rdt=Math.min(0.1,(now-lastFrame)/1000);
+    acc+=rdt*speed*S.pace;
+    let guard=0;
+    while(acc>=0.25 && guard<400){ tick(0.25); acc-=0.25; guard++; }
+    if(guard>=400) acc=0;
+  }
+  lastFrame=now;
+  if(inGame && S) render(now);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+document.querySelectorAll('.spd[data-s]').forEach(b=>{
+  b.onclick=()=>{
+    speed=+b.dataset.s; paused=false; $('pauseBtn').textContent='⏸ Pause';
+    document.querySelectorAll('.spd[data-s]').forEach(x=>x.classList.toggle('on',x===b));
+  };
+});
+$('pauseBtn').onclick=()=>{ paused=!paused; $('pauseBtn').textContent=paused?'▶ Resume':'⏸ Pause'; };
+document.addEventListener('keydown',e=>{
+  if(e.code==='Space' && inGame){ e.preventDefault(); $('pauseBtn').click(); }
+});
+$('quitBtn').onclick=()=>{ inGame=false; S=null; $('game').style.display='none'; $('endOverlay').style.display='none'; $('setup').style.display='block'; };
+$('newGameBtn').onclick=()=>{ $('quitBtn').onclick(); };
+$('watchBtn').onclick=()=>{ $('endOverlay').style.display='none'; S.over=false; S.t=Math.min(S.t,19000); paused=false; $('pauseBtn').textContent='⏸ Pause'; };
+$('startBtn').onclick=()=>{ if(cfg.factions.length>=2) initSim(); };
+
+window.addEventListener('error',e=>{ try{ addLog('⚠️ '+e.message,'err'); }catch(_){} });
+</script>
+</body>
+</html>
