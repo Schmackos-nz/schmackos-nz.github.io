@@ -1,8 +1,9 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
 <title>💰 Chest Run Simulator</title>
 <style>
   :root{ --gold:#f5c542; --panel:rgba(14,17,23,.92); --edge:#3a4456; }
@@ -121,6 +122,45 @@
   .shopCard .ipr{font-size:11.5px; color:var(--gold); font-variant-numeric:tabular-nums;}
   .shopCard .ipr.owned{color:#6fd06f;}
   .shopCard.broke .ipr{color:#e05555;}
+
+  /* touch controls (shown only on touch devices via body.touch) */
+  html,body{-webkit-tap-highlight-color:transparent;}
+  body.touch{user-select:none; -webkit-user-select:none;}
+  #joy{
+    position:absolute; left:16px; bottom:16px; width:112px; height:112px; border-radius:50%;
+    background:rgba(18,24,33,.42); border:2px solid rgba(122,142,160,.45);
+    display:none; align-items:center; justify-content:center; touch-action:none; z-index:6;
+  }
+  #joyKnob{
+    width:46px; height:46px; border-radius:50%; pointer-events:none;
+    background:rgba(245,197,66,.5); border:2px solid rgba(245,197,66,.85);
+  }
+  #lootBtn{
+    position:absolute; right:16px; bottom:26px; width:78px; height:78px; border-radius:50%;
+    background:rgba(245,197,66,.22); border:2px solid rgba(245,197,66,.7); color:var(--gold);
+    display:none; align-items:center; justify-content:center; text-align:center;
+    font-weight:800; font-size:12px; line-height:1.2; touch-action:none; z-index:6;
+  }
+  #lootBtn.active{background:rgba(245,197,66,.55); color:#1a1408;}
+  #lootBtn.dim{opacity:.32;}
+  body.touch #joy{display:flex;}
+  body.touch #lootBtn{display:flex;}
+
+  /* small screens: stack panels under the canvas */
+  @media (max-width:900px){
+    body{align-items:flex-start; overflow:auto;}
+    #stage{width:100%; padding:4px; gap:6px;}
+    #topbar,#botbar{flex-wrap:wrap; gap:6px;}
+    #topbar h1{font-size:13px; letter-spacing:1px;}
+    .chip{padding:4px 8px; font-size:12px;}
+    #mid{flex-direction:column;}
+    #side{width:100%;}
+    #feed{max-height:130px; flex:none;}
+    #controls{display:none;}
+    #goldBox .amt{font-size:18px;}
+    .shopGrid{grid-template-columns:repeat(3,1fr);}
+    #modalBox{padding:20px 16px;}
+  }
 </style>
 </head>
 <body>
@@ -136,6 +176,8 @@
   <div id="mid">
     <div id="cvWrap">
       <canvas id="cv" width="960" height="640"></canvas>
+      <div id="joy"><div id="joyKnob"></div></div>
+      <div id="lootBtn">🗝️<br>OPEN</div>
       <div id="legFlash"></div>
       <div id="legBanner"><div class="tag">✦ Legendary ✦</div><div class="name"></div><div class="val"></div></div>
     </div>
@@ -361,15 +403,18 @@ addEventListener('keydown',e=>{
 });
 addEventListener('keyup',e=>keys.delete(e.key.toLowerCase()));
 
+let joyVec={x:0,y:0};                       // virtual joystick vector (touch)
 function move(dt){
   let dx=0,dy=0;
   if(keys.has('w')||keys.has('arrowup'))dy--;
   if(keys.has('s')||keys.has('arrowdown'))dy++;
   if(keys.has('a')||keys.has('arrowleft'))dx--;
   if(keys.has('d')||keys.has('arrowright'))dx++;
-  player.moving=!!(dx||dy);
+  if(!dx&&!dy&&Math.hypot(joyVec.x,joyVec.y)>0.22){ dx=joyVec.x; dy=joyVec.y; }
+  const len=Math.hypot(dx,dy);
+  player.moving=len>0.001;
   if(!player.moving) return;
-  if(dx&&dy){dx*=0.7071; dy*=0.7071;}
+  if(len>1){ dx/=len; dy/=len; }
   if(dx) player.face=dx>0?1:-1;
   player.walk+=dt*9;
   const tryAxis=(nx,ny)=>{
@@ -761,7 +806,7 @@ function drawPrompt(c){
   const w=78,h=20;
   ctx.beginPath(); ctx.roundRect(-w/2,-h/2,w,h,5); ctx.fill(); ctx.stroke();
   ctx.fillStyle='#f5c542'; ctx.font='bold 11px Segoe UI'; ctx.textAlign='center'; ctx.textBaseline='middle';
-  ctx.fillText('[E]  Loot', 0, 1);
+  ctx.fillText(IS_TOUCH?'Tap OPEN':'[E]  Loot', 0, 1);
   ctx.restore();
 }
 
@@ -818,6 +863,37 @@ function hud(){
   }
 }
 
+/* ───────── touch controls ───────── */
+const IS_TOUCH = matchMedia('(pointer:coarse)').matches || 'ontouchstart' in window;
+const lootBtnEl=$('lootBtn');
+if(IS_TOUCH){
+  document.body.classList.add('touch');
+  const joy=$('joy'), knob=$('joyKnob');
+  let joyId=null;
+  function joyMove(e){
+    const r=joy.getBoundingClientRect();
+    let dx=e.clientX-(r.left+r.width/2), dy=e.clientY-(r.top+r.height/2);
+    const len=Math.hypot(dx,dy), max=r.width/2-12;
+    if(len>max){ dx=dx/len*max; dy=dy/len*max; }
+    knob.style.transform=`translate(${dx}px,${dy}px)`;
+    joyVec={x:dx/max, y:dy/max};
+  }
+  joy.addEventListener('pointerdown',e=>{
+    e.preventDefault(); initAudio();
+    joyId=e.pointerId; joy.setPointerCapture(joyId); joyMove(e);
+  });
+  joy.addEventListener('pointermove',e=>{ if(e.pointerId===joyId) joyMove(e); });
+  const joyEnd=e=>{
+    if(e.pointerId!==joyId) return;
+    joyId=null; joyVec={x:0,y:0};
+    knob.style.transform='translate(0,0)';
+  };
+  joy.addEventListener('pointerup',joyEnd);
+  joy.addEventListener('pointercancel',joyEnd);
+  lootBtnEl.addEventListener('pointerdown',e=>{ e.preventDefault(); initAudio(); tryLoot(); });
+  cv.addEventListener('contextmenu',e=>e.preventDefault());
+}
+
 /* ───────── world init & resume ─────────
    same hour → same seeded map; restore loot progress, position and the
    remaining run time. New hour → fresh map at the spawn point. */
@@ -864,6 +940,10 @@ function frame(now){
   if(casting) drawCastBar(now);
   const near=casting?null:nearestChest();
   if(near) drawPrompt(near);
+  if(IS_TOUCH){
+    lootBtnEl.classList.toggle('dim', !near && !casting);
+    lootBtnEl.classList.toggle('active', !!casting);
+  }
   hud();
   requestAnimationFrame(frame);
 }
