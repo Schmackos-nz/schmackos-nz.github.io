@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>💰 Chest Run Simulator</title>
+<style>
+  :root{ --gold:#f5c542; --panel:rgba(14,17,23,.92); --edge:#3a4456; }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{height:100%;}
+  body{
+    background:#0b0e13; color:#dfe6ef; font:14px/1.4 'Segoe UI',system-ui,sans-serif;
+    display:flex; align-items:center; justify-content:center; overflow:hidden;
+  }
+  #stage{position:relative; width:960px; max-width:100vw;}
+  canvas{display:block; width:100%; image-rendering:pixelated; border:1px solid #1c2330; border-radius:6px;}
+
+  .hud{position:absolute; pointer-events:none; user-select:none;}
+  #title{top:10px; left:50%; transform:translateX(-50%); text-align:center;}
+  #title h1{font-size:17px; letter-spacing:3px; color:var(--gold); text-shadow:0 2px 8px rgba(0,0,0,.8); font-weight:800;}
+  #chestCount{top:12px; left:14px; background:var(--panel); border:1px solid var(--edge); border-radius:8px; padding:6px 12px; font-weight:600;}
+  #cooldown{top:48px; left:14px; background:var(--panel); border:1px solid #7a4a1d; border-radius:8px; padding:6px 12px;
+    color:#f0a050; font-weight:700; display:none; font-variant-numeric:tabular-nums;}
+  #controls{bottom:12px; left:14px; color:#8b99ad; font-size:12px; text-shadow:0 1px 3px #000;}
+  #goldBox{bottom:12px; right:14px; background:var(--panel); border:1px solid #6b5618; border-radius:10px; padding:8px 16px; text-align:right;}
+  #goldBox .lbl{font-size:11px; color:#9aa6b5; letter-spacing:1px; text-transform:uppercase;}
+  #goldBox .amt{font-size:22px; font-weight:800; color:var(--gold); text-shadow:0 0 12px rgba(245,197,66,.35); font-variant-numeric:tabular-nums;}
+  #feed{top:84px; left:14px; width:280px; display:flex; flex-direction:column; gap:4px;}
+  .feedItem{background:var(--panel); border-left:3px solid #555; border-radius:4px; padding:4px 8px; font-size:12px;
+    animation:feedIn .25s ease-out; transition:opacity .8s;}
+  @keyframes feedIn{from{transform:translateX(-12px); opacity:0;} to{transform:none; opacity:1;}}
+
+  /* loot popup */
+  #lootPopup{
+    position:absolute; left:50%; bottom:70px; transform:translateX(-50%);
+    background:var(--panel); border:1px solid var(--edge); border-radius:10px; padding:12px 18px;
+    min-width:300px; display:none; pointer-events:none; box-shadow:0 8px 30px rgba(0,0,0,.6);
+  }
+  #lootPopup.leg{border-color:var(--gold); box-shadow:0 0 36px rgba(245,197,66,.45);}
+  #lootPopup h3{font-size:13px; color:#9aa6b5; letter-spacing:1px; text-transform:uppercase; margin-bottom:6px;}
+  #lootPopup .row{display:flex; justify-content:space-between; gap:18px; margin:2px 0;}
+  #lootPopup .row .v{color:var(--gold); font-variant-numeric:tabular-nums;}
+  #lootPopup .total{border-top:1px solid var(--edge); margin-top:7px; padding-top:5px; font-weight:700;}
+
+  /* modal */
+  #modal{
+    position:absolute; inset:0; background:rgba(5,7,10,.78); display:none;
+    align-items:center; justify-content:center; border-radius:6px;
+  }
+  #modalBox{
+    background:#141925; border:2px solid var(--gold); border-radius:14px; padding:30px 42px;
+    text-align:center; max-width:460px; box-shadow:0 0 60px rgba(245,197,66,.25);
+  }
+  #modalBox h2{color:var(--gold); letter-spacing:2px; margin-bottom:8px;}
+  #modalBox p{color:#aab6c5; margin-bottom:6px;}
+  #modalTimer{font-size:30px; font-weight:800; color:#fff; font-variant-numeric:tabular-nums; margin:10px 0 16px;}
+  #modalBox button{
+    cursor:pointer; background:var(--gold); border:none; color:#221a04; font:inherit; font-weight:700;
+    padding:9px 26px; border-radius:8px;
+  }
+  #modalBox button:hover{background:#ffd765;}
+  #modalStats{font-size:12.5px; color:#8b99ad; margin-top:14px;}
+
+  /* legendary flash */
+  #legFlash{position:absolute; inset:0; background:radial-gradient(circle, rgba(255,215,90,.55), rgba(255,160,30,.15) 60%, transparent 80%);
+    opacity:0; pointer-events:none; border-radius:6px; transition:opacity .15s;}
+  #legBanner{
+    position:absolute; top:34%; left:50%; transform:translate(-50%,-50%) scale(.8); text-align:center;
+    opacity:0; pointer-events:none; transition:all .35s cubic-bezier(.2,1.4,.4,1);
+  }
+  #legBanner.show{opacity:1; transform:translate(-50%,-50%) scale(1);}
+  #legBanner .tag{font-size:13px; letter-spacing:6px; color:#ffd76a; text-transform:uppercase;}
+  #legBanner .name{font-size:26px; font-weight:800; color:#ff9d2e; text-shadow:0 0 24px rgba(255,160,40,.9), 0 2px 4px #000; margin:4px 0;}
+  #legBanner .val{font-size:18px; color:var(--gold); font-weight:700;}
+
+  #toast{position:absolute; top:70px; left:50%; transform:translateX(-50%); background:var(--panel);
+    border:1px solid var(--edge); border-radius:8px; padding:8px 18px; display:none; font-weight:600;}
+
+  /* luck trophies */
+  #trophyBox{bottom:38px; left:14px; display:flex; align-items:center; gap:7px; pointer-events:auto;}
+  #trophyBox .lbl{font-weight:700; color:#cdd7e2; text-shadow:0 1px 3px #000; letter-spacing:1px;}
+  .tslot{
+    width:28px; height:28px; border:1.5px solid var(--edge); border-radius:6px; background:var(--panel);
+    display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:16px; color:#7a8798;
+    user-select:none; transition:border-color .15s, box-shadow .15s;
+  }
+  .tslot:hover{border-color:var(--gold); color:var(--gold);}
+  .tslot.owned{border-color:var(--gold); background:#241d09; cursor:default;
+    box-shadow:0 0 10px rgba(245,197,66,.35); font-size:15px;}
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="cv" width="960" height="640"></canvas>
+
+  <div class="hud" id="title"><h1>⚜ CHEST RUN SIMULATOR ⚜</h1></div>
+  <div class="hud" id="chestCount">🗝️ Chests: 0 / 16</div>
+  <div class="hud" id="cooldown">⏳ Respawn in --:--</div>
+  <div class="hud" id="feed"></div>
+  <div class="hud" id="controls">WASD / Arrows — move &nbsp;·&nbsp; E — loot chest</div>
+  <div class="hud" id="trophyBox">
+    <span class="lbl">Trophy</span>
+    <div class="tslot" data-i="0">+</div>
+    <div class="tslot" data-i="1">+</div>
+    <div class="tslot" data-i="2">+</div>
+  </div>
+  <div class="hud" id="goldBox"><div class="lbl">Total Profit</div><div class="amt" id="goldAmt">0 g</div></div>
+
+  <div id="lootPopup"></div>
+  <div id="legFlash"></div>
+  <div id="legBanner"><div class="tag">✦ Legendary ✦</div><div class="name"></div><div class="val"></div></div>
+  <div id="toast"></div>
+
+  <div id="modal"><div id="modalBox">
+    <h2>RUN COMPLETE</h2>
+    <p>Every chest on the route has been emptied.<br>The spirits must gather new treasure…</p>
+    <p><b style="color:#fff">Come back in one hour.</b></p>
+    <div id="modalTimer">1:00:00</div>
+    <div id="modalStats"></div>
+    <button id="modalBtn">Fine, I'll wait</button>
+  </div></div>
+</div>
+
+<script>
+'use strict';
+/* ───────── constants ───────── */
+const TILE=32, COLS=30, ROWS=20;
+const HOUR=3600*1000;
+const LS_KEY='chestRunSim_v1';
+const $=id=>document.getElementById(id);
+const cv=$('cv'), ctx=cv.getContext('2d');
+
+/* static wall layout (tile rects: x,y,w,h) — same every run */
+const WALLS=[
+  [0,0,30,1],[0,19,30,1],[0,0,1,20],[29,0,1,20],   // border
+  [12,8,6,4],                                       // central block
+  [7,1,1,5],[22,1,1,5],[7,14,1,5],[22,14,1,5],      // corner dividers
+  [3,4,3,1],[25,4,2,1],                             // ledges
+  [4,10,2,2],[24,10,2,2],[14,3,2,2],[14,15,2,2],    // pillars
+];
+/* static chest positions (tile coords) — same every run */
+const CHEST_TILES=[
+  [2,2],[13,2],[27,2],
+  [4,6],[26,6],[14,6],
+  [9,9],[20,9],
+  [3,10],[2,12],[27,12],
+  [15,13],
+  [2,17],[12,17],[24,17],[27,17],
+];
+const SPAWN={x:15.5*TILE, y:17.5*TILE};
+
+/* collision grid */
+const grid=new Uint8Array(COLS*ROWS);
+for(const [x,y,w,h] of WALLS)
+  for(let j=y;j<y+h;j++) for(let i=x;i<x+w;i++) grid[j*COLS+i]=1;
+const solid=(px,py)=>{
+  const tx=Math.floor(px/TILE), ty=Math.floor(py/TILE);
+  return tx<0||ty<0||tx>=COLS||ty>=ROWS || grid[ty*COLS+tx]===1;
+};
+
+/* ───────── loot tables ───────── */
+const LEGENDARIES=[
+  ['Tarnished Crown of the Drowned King', 150000],
+  ['Serenity, Greatsword of the First Light', 120000],
+  ['The Allseeing Eye of Attalon', 95000],
+  ['Heart of the Corrupted Hive', 78000],
+  ['Azoth-Drenched War Banner', 61000],
+  ['Gauntlets of the Eternal Empire', 47000],
+  ['Whisperwind, Bow of the Lost Grove', 35000],
+  ['Sigil Ring of House Vance', 26000],
+  ['Frozen Tear of Aeternum', 18500],
+  ['Duskfall Cloak of the Wraith', 12000],
+  ['Tongue of the Ash Dragon', 8000],
+  ['Phial of Liquid Moonlight', 5000],
+  ['Cursed Doubloon of Captain Thorne', 3200],
+  ['Splinter of the World Tree', 2000],
+];
+const TRASH_ADJ=['Cracked','Soggy','Rusty','Moth-Eaten','Bent','Chipped','Mouldy','Tarnished','Frayed','Dented',
+  'Grimy','Lopsided','Waterlogged','Threadbare','Crusty','Splintered','Faded','Sticky','Wobbly','Smelly'];
+const TRASH_NOUN=['Boar Tusk','Rope Coil','Tin Cup','Wolf Pelt','Fishing Hook','Candle Stub','Belt Buckle','Hairpin',
+  'Wooden Spoon','Boot Heel','Goblet','Horseshoe','Quill','Tankard','Compass','Dagger Hilt','Lockpick','Trinket',
+  'Amulet','Map Fragment','Brass Button','Thimble','Whetstone','Clay Pipe','Spyglass Lens'];
+const rnd=(a,b)=>a+Math.random()*(b-a);
+const ri=(a,b)=>Math.floor(rnd(a,b+1));
+const pick=a=>a[ri(0,a.length-1)];
+const gfmt=n=>Math.round(n).toLocaleString('en-US');
+
+function trashColor(v){
+  if(v<50)  return '#9aa3ad';   // junk grey
+  if(v<200) return '#e8edf2';   // common white
+  if(v<500) return '#6fd06f';   // green
+  return '#5aa6f0';             // blue
+}
+function rollChest(){
+  const items=[];
+  const n=ri(2,4);
+  for(let i=0;i<n;i++){
+    const value=1+Math.floor(Math.pow(Math.random(),1.8)*999);
+    items.push({name:pick(TRASH_ADJ)+' '+pick(TRASH_NOUN), value, color:trashColor(value), legendary:false});
+  }
+  if(Math.random() < 0.01 + state.luck*0.01){   // 1 in 100 chests, +1% per luck trophy
+    const [name,value]=pick(LEGENDARIES);
+    items.push({name, value, color:'#ff9d2e', legendary:true});
+  }
+  return items;
+}
+
+/* ───────── persistent state ───────── */
+let state={gold:0, looted:[], cd:0, luck:0, stats:{runs:0, chests:0, legendaries:0, best:0, bestName:'—'}};
+try{
+  const raw=localStorage.getItem(LS_KEY);
+  if(raw){ const s=JSON.parse(raw); if(s && typeof s.gold==='number') state={...state, ...s, stats:{...state.stats, ...(s.stats||{})}}; }
+}catch(e){}
+const save=()=>{ try{ localStorage.setItem(LS_KEY, JSON.stringify(state)); }catch(e){} };
+
+let looted=new Set(state.looted);
+/* cooldown already expired while away → fresh run; mid-run state persists across refresh */
+if(state.cd && Date.now()>=state.cd){ state.cd=0; looted.clear(); state.looted=[]; save(); }
+if(!state.cd && looted.size>=CHEST_TILES.length){ state.cd=Date.now()+HOUR; save(); }  // corrupt-state guard
+
+/* ───────── player ───────── */
+const player={x:SPAWN.x, y:SPAWN.y, face:1, moving:false, walk:0};
+const SPEED=190, PW=14, PH=10;     // collide box (feet)
+const keys=new Set();
+addEventListener('keydown',e=>{
+  const k=e.key.toLowerCase();
+  if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(k)||['w','a','s','d','e'].includes(k)) e.preventDefault();
+  keys.add(k);
+  if(k==='e') tryLoot();
+  initAudio();
+});
+addEventListener('keyup',e=>keys.delete(e.key.toLowerCase()));
+
+function move(dt){
+  let dx=0,dy=0;
+  if(keys.has('w')||keys.has('arrowup'))dy--;
+  if(keys.has('s')||keys.has('arrowdown'))dy++;
+  if(keys.has('a')||keys.has('arrowleft'))dx--;
+  if(keys.has('d')||keys.has('arrowright'))dx++;
+  player.moving=!!(dx||dy);
+  if(!player.moving) return;
+  if(dx&&dy){dx*=0.7071; dy*=0.7071;}
+  if(dx) player.face=dx>0?1:-1;
+  player.walk+=dt*9;
+  const tryAxis=(nx,ny)=>{
+    const hw=PW/2, hh=PH/2;
+    if(!solid(nx-hw,ny-hh)&&!solid(nx+hw,ny-hh)&&!solid(nx-hw,ny+hh)&&!solid(nx+hw,ny+hh)){ player.x=nx; player.y=ny; }
+  };
+  tryAxis(player.x+dx*SPEED*dt, player.y);
+  tryAxis(player.x, player.y+dy*SPEED*dt);
+}
+
+/* ───────── chests & looting ───────── */
+const chests=CHEST_TILES.map(([tx,ty],i)=>({i, x:(tx+0.5)*TILE, y:(ty+0.5)*TILE, phase:i*1.37}));
+const onCooldown=()=>state.cd>0 && Date.now()<state.cd;
+
+function nearestChest(){
+  if(onCooldown()) return null;
+  let best=null, bd=44*44;
+  for(const c of chests){
+    if(looted.has(c.i)) continue;
+    const d=(c.x-player.x)**2+(c.y-player.y)**2;
+    if(d<bd){bd=d; best=c;}
+  }
+  return best;
+}
+
+let popupTimer=null;
+function tryLoot(){
+  const c=nearestChest();
+  if(!c) return;
+  looted.add(c.i);
+  const items=rollChest();
+  const total=items.reduce((s,it)=>s+it.value,0);
+  state.gold+=total;
+  state.stats.chests++;
+  const leg=items.find(it=>it.legendary);
+  if(leg){
+    state.stats.legendaries++;
+    if(leg.value>state.stats.best){ state.stats.best=leg.value; state.stats.bestName=leg.name; }
+    legendaryFX(leg);
+    sfx('legendary');
+  } else sfx('open');
+  state.looted=[...looted];
+  save();
+  showLoot(items,total,!!leg);
+  for(const it of items) feed(it);
+  if(looted.size>=chests.length) finishRun();
+}
+
+function showLoot(items,total,leg){
+  const p=$('lootPopup');
+  p.className=leg?'leg':'';
+  p.innerHTML='<h3>Chest opened</h3>'+
+    items.map(it=>`<div class="row"><span style="color:${it.color};${it.legendary?'font-weight:700':''}">${it.legendary?'✦ ':''}${it.name}</span><span class="v">${gfmt(it.value)} g</span></div>`).join('')+
+    `<div class="row total"><span>Total</span><span class="v">+${gfmt(total)} g</span></div>`;
+  p.style.display='block';
+  clearTimeout(popupTimer);
+  popupTimer=setTimeout(()=>p.style.display='none', 4200);
+}
+function feed(it){
+  const f=$('feed');
+  const d=document.createElement('div');
+  d.className='feedItem';
+  d.style.borderLeftColor=it.color;
+  d.innerHTML=`<span style="color:${it.color}">${it.legendary?'✦ ':''}${it.name}</span> <span style="color:#f5c542;float:right">${gfmt(it.value)} g</span>`;
+  f.prepend(d);
+  while(f.children.length>6) f.lastChild.remove();
+  setTimeout(()=>{d.style.opacity='0';},5000);
+  setTimeout(()=>d.remove(),6000);
+}
+function legendaryFX(leg){
+  const fl=$('legFlash'); fl.style.opacity='1';
+  setTimeout(()=>fl.style.opacity='0',450);
+  const b=$('legBanner');
+  b.querySelector('.name').textContent=leg.name;
+  b.querySelector('.val').textContent=gfmt(leg.value)+' gold';
+  b.classList.add('show');
+  setTimeout(()=>b.classList.remove('show'),3800);
+}
+
+function finishRun(){
+  state.cd=Date.now()+HOUR;
+  state.stats.runs++;
+  save();
+  setTimeout(()=>{
+    $('modalStats').innerHTML=
+      `Runs completed: <b>${state.stats.runs}</b> · Chests looted: <b>${state.stats.chests}</b> · `+
+      `Legendaries: <b style="color:#ff9d2e">${state.stats.legendaries}</b><br>`+
+      `Best find: <span style="color:#ff9d2e">${state.stats.bestName}</span>`+
+      (state.stats.best?` (${gfmt(state.stats.best)} g)`:'');
+    $('modal').style.display='flex';
+  },1100);
+}
+$('modalBtn').onclick=()=>$('modal').style.display='none';
+
+let toastTimer=null;
+function toast(msg){
+  const t=$('toast'); t.textContent=msg; t.style.display='block';
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.style.display='none',3500);
+}
+if(onCooldown()) setTimeout(()=>toast('⏳ Chests are on cooldown — the run resets soon.'),600);
+
+/* ───────── luck trophies ───────── */
+const TROPHY_COST=100000;
+const tslots=[...document.querySelectorAll('.tslot')];
+function updateTrophies(){
+  tslots.forEach((el,i)=>{
+    const owned=i<state.luck;
+    el.classList.toggle('owned',owned);
+    el.textContent=owned?'🏆':'+';
+    el.title=owned
+      ? 'Luck Trophy — +1% legendary chance'
+      : `Buy Luck Trophy — +1% legendary chance (${gfmt(TROPHY_COST)} g)`;
+  });
+}
+tslots.forEach(el=>{
+  el.addEventListener('click',()=>{
+    initAudio();
+    if(state.luck>=3) return;
+    if(+el.dataset.i!==state.luck){ toast('Buy trophies left to right.'); return; }
+    if(state.gold<TROPHY_COST){ toast(`Need ${gfmt(TROPHY_COST)} g for a Luck Trophy.`); return; }
+    state.gold-=TROPHY_COST;
+    state.luck++;
+    save();
+    updateTrophies();
+    toast(`🏆 Luck Trophy acquired — legendary chance is now ${1+state.luck}%!`);
+    sfx('legendary');
+  });
+});
+updateTrophies();
+
+/* ───────── tiny synth sfx ───────── */
+let AC=null;
+function initAudio(){ if(!AC){ try{ AC=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } }
+function tone(freq,dur,type,vol,when){
+  if(!AC) return;
+  const o=AC.createOscillator(), g=AC.createGain();
+  o.type=type; o.frequency.value=freq;
+  g.gain.setValueAtTime(vol,AC.currentTime+when);
+  g.gain.exponentialRampToValueAtTime(0.0001,AC.currentTime+when+dur);
+  o.connect(g); g.connect(AC.destination);
+  o.start(AC.currentTime+when); o.stop(AC.currentTime+when+dur+0.05);
+}
+function sfx(kind){
+  if(!AC) return;
+  if(kind==='open'){ tone(160,0.12,'square',0.12,0); tone(520,0.18,'triangle',0.1,0.06); tone(780,0.22,'triangle',0.08,0.12); }
+  if(kind==='legendary'){ [523,659,784,1047,1319].forEach((f,i)=>tone(f,0.5,'triangle',0.13,i*0.11)); tone(110,0.7,'sawtooth',0.05,0); }
+  if(kind==='respawn'){ tone(392,0.2,'triangle',0.1,0); tone(523,0.3,'triangle',0.1,0.15); }
+}
+
+/* ───────── drawing ───────── */
+function drawMap(t){
+  for(let y=0;y<ROWS;y++) for(let x=0;x<COLS;x++){
+    const px=x*TILE, py=y*TILE;
+    if(grid[y*COLS+x]){
+      ctx.fillStyle='#2a3240'; ctx.fillRect(px,py,TILE,TILE);
+      ctx.fillStyle='#343e4f'; ctx.fillRect(px,py,TILE,5);
+      ctx.fillStyle='#222936'; ctx.fillRect(px,py+TILE-4,TILE,4);
+      if((x*7+y*13)%5===0){ ctx.fillStyle='#303948'; ctx.fillRect(px+6,py+10,8,3); }
+    }else{
+      const h=(x*31+y*57)%7;
+      ctx.fillStyle=h===0?'#1b2417':'#1e2a1a';
+      ctx.fillRect(px,py,TILE,TILE);
+      if((x*13+y*29)%11===0){ ctx.fillStyle='#26341f'; ctx.fillRect(px+10,py+14,3,6); ctx.fillRect(px+15,py+12,3,8); }
+      if((x*17+y*23)%19===0){ ctx.fillStyle='#28323e'; ctx.fillRect(px+8,py+20,12,4); }
+    }
+  }
+}
+function drawChest(c,t){
+  const open=looted.has(c.i), ghost=onCooldown();
+  ctx.save();
+  ctx.translate(c.x,c.y);
+  if(ghost) ctx.globalAlpha=0.22;
+  ctx.fillStyle='rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(0,9,14,5,0,0,7); ctx.fill();
+  if(open){
+    ctx.fillStyle='#4a3520'; ctx.fillRect(-13,-4,26,13);
+    ctx.fillStyle='#16100a'; ctx.fillRect(-10,-2,20,8);
+    ctx.fillStyle='#5d4429'; ctx.fillRect(-13,-14,26,7);
+    ctx.fillStyle='#8a6a35'; ctx.fillRect(-13,-14,26,2);
+  }else{
+    ctx.fillStyle='#6b4d2a'; ctx.fillRect(-13,-8,26,17);
+    ctx.fillStyle='#7d5c33'; ctx.fillRect(-13,-12,26,7);
+    ctx.fillStyle='#c9a23f'; ctx.fillRect(-13,-6,26,3);
+    ctx.fillRect(-2,-12,4,21);
+    ctx.fillStyle='#f0d060'; ctx.fillRect(-3,-3,6,6);
+    ctx.fillStyle='#3a2a14'; ctx.fillRect(-1,-1,2,3);
+    if(!ghost){
+      const tw=Math.sin(t*3+c.phase), tw2=Math.sin(t*4.3+c.phase*2);
+      if(tw>0.55){ ctx.fillStyle=`rgba(255,240,170,${(tw-0.55)*2})`; ctx.fillRect(-10+Math.sin(c.phase)*4,-18,3,3); }
+      if(tw2>0.6){ ctx.fillStyle=`rgba(255,255,210,${(tw2-0.6)*2.2})`; ctx.fillRect(7,-16+Math.cos(c.phase)*3,2,2); }
+    }
+  }
+  ctx.restore();
+}
+function drawPlayer(t){
+  const bob=player.moving?Math.sin(player.walk)*1.6:0;
+  const legA=player.moving?Math.sin(player.walk)*4:0;
+  ctx.save();
+  ctx.translate(player.x, player.y);
+  ctx.fillStyle='rgba(0,0,0,.4)'; ctx.beginPath(); ctx.ellipse(0,6,9,4,0,0,7); ctx.fill();
+  ctx.scale(player.face,1);
+  ctx.translate(0,bob);
+  ctx.fillStyle='#3d2f22';                       // legs
+  ctx.fillRect(-5,-2+Math.max(0,legA),4,8-Math.max(0,legA));
+  ctx.fillRect(1,-2+Math.max(0,-legA),4,8-Math.max(0,-legA));
+  ctx.fillStyle='#3a6ea5'; ctx.fillRect(-7,-14,14,13);   // tunic
+  ctx.fillStyle='#2d5580'; ctx.fillRect(-7,-5,14,4);
+  ctx.fillStyle='#c9a23f'; ctx.fillRect(-7,-6,14,2);     // belt
+  ctx.fillStyle='#e8b88a'; ctx.fillRect(5,-12,4,7);      // arm
+  ctx.fillStyle='#e8b88a'; ctx.fillRect(-5,-24,11,10);   // head
+  ctx.fillStyle='#5d4429'; ctx.fillRect(-6,-26,13,5);    // hair
+  ctx.fillRect(-6,-24,3,6);
+  ctx.fillStyle='#1c2330'; ctx.fillRect(2,-21,2,3);      // eye
+  ctx.restore();
+}
+function drawPrompt(c){
+  ctx.save();
+  ctx.translate(c.x, c.y-30);
+  ctx.fillStyle='rgba(12,15,21,.92)';
+  ctx.strokeStyle='#f5c542'; ctx.lineWidth=1.5;
+  const w=78,h=20;
+  ctx.beginPath(); ctx.roundRect(-w/2,-h/2,w,h,5); ctx.fill(); ctx.stroke();
+  ctx.fillStyle='#f5c542'; ctx.font='bold 11px Segoe UI'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText('[E]  Loot', 0, 1);
+  ctx.restore();
+}
+
+/* ───────── HUD ───────── */
+let dispGold=state.gold;
+const fmtCD=ms=>{
+  const s=Math.max(0,Math.ceil(ms/1000));
+  const h=Math.floor(s/3600), m=Math.floor(s%3600/60), ss=s%60;
+  return `${h}:${String(m).padStart(2,'0')}:${String(ss).padStart(2,'0')}`;
+};
+function hud(){
+  $('chestCount').textContent=`🗝️ Chests: ${looted.size} / ${chests.length}`;
+  dispGold+=(state.gold-dispGold)*0.12;
+  if(Math.abs(state.gold-dispGold)<1) dispGold=state.gold;
+  $('goldAmt').textContent=gfmt(dispGold)+' g';
+  const cd=$('cooldown');
+  if(onCooldown()){
+    const left=state.cd-Date.now();
+    cd.style.display='block';
+    cd.textContent='⏳ Respawn in '+fmtCD(left);
+    $('modalTimer').textContent=fmtCD(left);
+  }else{
+    cd.style.display='none';
+    if(state.cd>0){          // cooldown just elapsed → respawn the run
+      state.cd=0; looted.clear(); state.looted=[]; save();
+      $('modal').style.display='none';
+      toast('✨ The chests have respawned — run it back!');
+      sfx('respawn');
+    }
+  }
+}
+
+/* ───────── main loop ───────── */
+let last=performance.now();
+function frame(now){
+  const dt=Math.min(0.05,(now-last)/1000); last=now;
+  const t=now/1000;
+  move(dt);
+  drawMap(t);
+  for(const c of chests) drawChest(c,t);
+  drawPlayer(t);
+  const near=nearestChest();
+  if(near) drawPrompt(near);
+  hud();
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
