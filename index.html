@@ -93,6 +93,40 @@
   .tslot.owned{border-color:var(--gold); background:#241d09; cursor:default;
     box-shadow:0 0 10px rgba(245,197,66,.35); font-size:15px;}
 
+  /* abilities */
+  #abilBar{display:flex; gap:6px; align-items:center; margin-left:8px;}
+  .aslot{
+    position:relative; width:34px; height:34px; border:1.5px solid var(--edge); border-radius:8px;
+    background:var(--panel); display:flex; align-items:center; justify-content:center; font-size:17px;
+    cursor:pointer; user-select:none; transition:border-color .15s, opacity .15s;
+  }
+  .aslot:hover{border-color:var(--gold);}
+  .aslot .k{position:absolute; right:3px; bottom:0; font-size:9px; color:#8b99ad; font-weight:700;}
+  .aslot.used{opacity:.28; cursor:default;}
+  .aslot.armed{border-color:var(--gold); box-shadow:0 0 10px rgba(245,197,66,.5);}
+
+  /* wordle result + share */
+  #wordleGrid{font-size:22px; line-height:1.25; margin:10px 0 4px; letter-spacing:2px;}
+  #modalRow{display:flex; gap:10px; justify-content:center;}
+  #shareBtn{background:#2a3344 !important; color:#cdd7e2 !important;}
+  #shareBtn:hover{background:#39455c !important;}
+
+  /* first-time intro */
+  #introModal{position:fixed; inset:0; background:rgba(5,7,10,.84); display:none; align-items:center; justify-content:center; z-index:30;}
+  #introBox{
+    background:#141925; border:2px solid var(--gold); border-radius:14px; padding:26px 32px;
+    max-width:560px; width:94vw; max-height:92vh; overflow-y:auto; box-shadow:0 0 60px rgba(245,197,66,.2);
+  }
+  #introBox h2{color:var(--gold); letter-spacing:2px; text-align:center; margin-bottom:12px; font-size:18px;}
+  #introBox .il{color:#b9c4d2; font-size:13px; margin:7px 0; line-height:1.45;}
+  #introBox .il b{color:#e8edf2;}
+  #introBox .warn{color:#f0a050;}
+  #introBox button{
+    display:block; margin:16px auto 0; cursor:pointer; background:var(--gold); border:none;
+    color:#221a04; font:inherit; font-weight:700; padding:9px 28px; border-radius:8px;
+  }
+  #introBox button:hover{background:#ffd765;}
+
   /* shop */
   #shopBtn{
     cursor:pointer; background:var(--panel); border:1px solid var(--edge); border-radius:8px;
@@ -143,8 +177,15 @@
   }
   #lootBtn.active{background:rgba(245,197,66,.55); color:#1a1408;}
   #lootBtn.dim{opacity:.32;}
+  #jumpBtn{
+    position:absolute; right:36px; bottom:118px; width:62px; height:62px; border-radius:50%;
+    background:rgba(120,180,245,.18); border:2px solid rgba(120,180,245,.6); color:#9ec9f0;
+    display:none; align-items:center; justify-content:center; text-align:center;
+    font-weight:800; font-size:11px; line-height:1.2; touch-action:none; z-index:6;
+  }
   body.touch #joy{display:flex;}
   body.touch #lootBtn{display:flex;}
+  body.touch #jumpBtn{display:flex;}
 
   /* small screens: stack panels under the canvas */
   @media (max-width:900px){
@@ -175,9 +216,10 @@
 
   <div id="mid">
     <div id="cvWrap">
-      <canvas id="cv" width="960" height="640"></canvas>
+      <canvas id="cv" width="960" height="524"></canvas>
       <div id="joy"><div id="joyKnob"></div></div>
       <div id="lootBtn">🗝️<br>OPEN</div>
+      <div id="jumpBtn">⤴<br>JUMP</div>
       <div id="legFlash"></div>
       <div id="legBanner"><div class="tag">✦ Legendary ✦</div><div class="name"></div><div class="val"></div></div>
     </div>
@@ -195,7 +237,12 @@
       <div class="tslot" data-i="1">+</div>
       <div class="tslot" data-i="2">+</div>
     </div>
-    <span id="controls">WASD / Arrows — move &nbsp;·&nbsp; E — open chest (1.5s cast) &nbsp;·&nbsp; guardians interrupt your cast!</span>
+    <div id="abilBar">
+      <div class="aslot" id="ab-trap" title="Snare Trap [1] — drop at your feet; the first guardian to step on it is stuck for the rest of the run">🪤<span class="k">1</span></div>
+      <div class="aslot" id="ab-instant" title="Plunder Surge [2] — your next chest opens instantly">⚡<span class="k">2</span></div>
+      <div class="aslot" id="ab-stealth" title="Phase Cloak [3] — invisible to guardians for 5s, or until you start opening a chest">👻<span class="k">3</span></div>
+    </div>
+    <span id="controls">WASD — move &nbsp;·&nbsp; Space — jump &nbsp;·&nbsp; W — climb &nbsp;·&nbsp; E — open chest &nbsp;·&nbsp; 1 / 2 / 3 — abilities</span>
     <button id="shopBtn">🛒 Shop</button>
     <div id="goldBox"><div class="lbl">Total Profit</div><div class="amt" id="goldAmt">0 g</div></div>
   </div>
@@ -203,10 +250,26 @@
 <div id="modal"><div id="modalBox">
     <h2 id="modalH">RUN COMPLETE</h2>
     <p id="modalP">Every chest cleared.</p>
+    <div id="wordleGrid"></div>
     <p style="font-size:12.5px">Next run available at the top of the hour:</p>
     <div id="modalTimer">--:--</div>
     <div id="modalStats"></div>
-    <button id="modalBtn">Fine, I'll wait</button>
+    <div id="modalRow">
+      <button id="shareBtn">📋 Share</button>
+      <button id="modalBtn">Fine, I'll wait</button>
+    </div>
+  </div></div>
+
+<div id="introModal"><div id="introBox">
+    <h2>⚜ WELCOME TO THE CHEST RUN ⚜</h2>
+    <p class="il">🗝️ <b>Objective:</b> loot <b>all 16 chests</b>. Opening your first chest starts a <b>5-minute</b> timer — clear them all before it runs out. A brand-new map arrives at the top of every hour, the same for everyone.</p>
+    <p class="il">🟢 Guardians patrol near some chests. They can't hurt you, but one smack <b>interrupts your 1.5s opening cast</b>. Jump up mounds with <b>Space</b>, climb ladders with <b>W</b>.</p>
+    <p class="il"><b>Once per run</b> you may use each of these abilities:</p>
+    <p class="il">🪤 <b>[1] Snare Trap</b> — drop it at your feet; the first guardian to step on it is <b>stuck in place for the rest of the run</b>.</p>
+    <p class="il">⚡ <b>[2] Plunder Surge</b> — your <b>next chest opens instantly</b>, no cast to interrupt.</p>
+    <p class="il">👻 <b>[3] Phase Cloak</b> — guardians can't see you for <b>5 seconds</b>, or until you start opening a chest.</p>
+    <p class="il warn">⚠ Spend them wisely — they don't come back until the next hour, and a wasted ability can mean a guarded chest you can't crack before the clock runs out.</p>
+    <button id="introBtn">Let's loot</button>
   </div></div>
 
 <div id="shopModal"><div id="shopBox">
@@ -225,6 +288,9 @@
 'use strict';
 /* ───────── constants ───────── */
 const TILE=32, COLS=30, ROWS=20;
+const TILEY=24, YS=TILEY/TILE, PAD=44;   // tilted projection: world y squashed to 3/4, room up top for tall things
+const STEP=14, WALLZ=34;                 // pixel height of one elevation level / of a boundary rock
+const projY=(wy,z)=>PAD+wy*YS-z;
 const HOUR=3600*1000;
 const LS_KEY='chestRunSim_v1';
 const $=id=>document.getElementById(id);
@@ -237,17 +303,23 @@ const CHEST_COUNT=16, GUARD_COUNT=4, RUN_MS=5*60*1000;
 const currentHour=()=>Math.floor(Date.now()/HOUR);
 function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
 const FLOOR_THEMES=[
-  {f1:'#1b2417',f2:'#1e2a1a',tuft:'#26341f',rock:'#28323e'},   // meadow
-  {f1:'#2b2316',f2:'#322a1a',tuft:'#4a3b1d',rock:'#3c3322'},   // desert
-  {f1:'#232a33',f2:'#28303a',tuft:'#3a4654',rock:'#313d4a'},   // tundra
-  {f1:'#241d22',f2:'#2a2128',tuft:'#3d2b35',rock:'#35303c'},   // ashlands
+  {f1:'#1b2417',f2:'#1e2a1a',tuft:'#26341f',rock:'#28323e',cliff:'#3a2f1f',cliff2:'#2b2317'},   // meadow
+  {f1:'#2b2316',f2:'#322a1a',tuft:'#4a3b1d',rock:'#3c3322',cliff:'#4a3922',cliff2:'#372a19'},   // desert
+  {f1:'#232a33',f2:'#28303a',tuft:'#3a4654',rock:'#313d4a',cliff:'#39434f',cliff2:'#2a323c'},   // tundra
+  {f1:'#241d22',f2:'#2a2128',tuft:'#3d2b35',rock:'#35303c',cliff:'#3a2c33',cliff2:'#2b2026'},   // ashlands
 ];
 const grid=new Uint8Array(COLS*ROWS);
+const elevMap=new Uint8Array(COLS*ROWS);   // 0..2 elevation levels — mounds and platforms
+let ladders={};                            // bottom-tile idx → {topZ, face: high-tile idx}
 let chests=[], monsters=[], spawnTile=[2,2], theme=FLOOR_THEMES[0], worldHK=0;
-const solid=(px,py)=>{
-  const tx=Math.floor(px/TILE), ty=Math.floor(py/TILE);
-  return tx<0||ty<0||tx>=COLS||ty>=ROWS || grid[ty*COLS+tx]===1;
+const tIdx=(px,py)=>{
+  const tx=px/TILE|0, ty=py/TILE|0;
+  return px<0||py<0||tx>=COLS||ty>=ROWS ? -1 : ty*COLS+tx;
 };
+const wallAt=(px,py)=>{const i=tIdx(px,py); return i<0||grid[i]===1;};
+const floorZAt=(px,py)=>{const i=tIdx(px,py); return i<0||grid[i]?1e9:elevMap[i]*STEP;};
+const blockedFor=(px,py,z)=>floorZAt(px,py)>z+2;        // can stand on / pass over anything at or below your height
+const elevAt=(px,py)=>{const i=tIdx(px,py); return i<0||grid[i]?-1:elevMap[i];};
 
 function genWorld(hk){
   worldHK=hk;
@@ -283,10 +355,68 @@ function genWorld(hk){
   }
   spawnTile=[spawnIdx%COLS,(spawnIdx-spawnIdx%COLS)/COLS];
   for(let i=0;i<grid.length;i++) if(!grid[i]&&!reach.has(i)) grid[i]=1;   // seal off unreachable pockets
+
+  // ── elevation: mounds (jumpable, +1), platforms (+2, ladder up the south face) ──
+  elevMap.fill(0); ladders={};
+  const sx=spawnTile[0], sy=spawnTile[1];
+  const canRaise=(x,y)=> x>1&&y>1&&x<COLS-2&&y<ROWS-2 && !grid[y*COLS+x] && reach.has(y*COLS+x)
+    && (Math.abs(x-sx)+Math.abs(y-sy))>4;
+  const mounds=[];
+  const nMounds=5+Math.floor(rng()*3);
+  for(let k=0;k<nMounds;k++){
+    const w=3+Math.floor(rng()*3), h=2+Math.floor(rng()*3);
+    const x=2+Math.floor(rng()*(COLS-4-w)), y=2+Math.floor(rng()*(ROWS-4-h));
+    let any=false;
+    for(let j=y;j<y+h;j++) for(let i=x;i<x+w;i++) if(canRaise(i,j)){ elevMap[j*COLS+i]=1; any=true; }
+    if(any) mounds.push([x,y,w,h]);
+  }
+  for(const [mx,my,mw,mh] of mounds){           // some mounds get a +2 cap on the inner ring
+    if(mw>=3 && mh>=3 && rng()<0.55)
+      for(let j=my+1;j<my+mh-1;j++) for(let i=mx+1;i<mx+mw-1;i++)
+        if(elevMap[j*COLS+i]===1) elevMap[j*COLS+i]=2;
+  }
+  const nTowers=1+Math.floor(rng()*2);          // sheer +2 towers — ladder is the only way up
+  for(let k=0;k<nTowers;k++){
+    const w=2+Math.floor(rng()*2), h=2;
+    const x=2+Math.floor(rng()*(COLS-4-w)), y=2+Math.floor(rng()*(ROWS-4-h));
+    let ok=true;
+    for(let j=y;j<y+h;j++) for(let i=x;i<x+w;i++) if(!canRaise(i,j)||elevMap[j*COLS+i]) ok=false;
+    if(!ok) continue;
+    for(let j=y;j<y+h;j++) for(let i=x;i<x+w;i++) elevMap[j*COLS+i]=2;
+  }
+  // every connected +2 cluster needs a ladder on a south face (or it sinks back to +1)
+  const seen=new Set();
+  for(let ci=0;ci<grid.length;ci++){
+    if(elevMap[ci]!==2 || grid[ci] || seen.has(ci)) continue;
+    const cluster=[ci]; seen.add(ci);
+    for(let q=0;q<cluster.length;q++)
+      for(const nb of [cluster[q]-1,cluster[q]+1,cluster[q]-COLS,cluster[q]+COLS])
+        if(nb>=0 && nb<grid.length && !grid[nb] && elevMap[nb]===2 && !seen.has(nb)){ seen.add(nb); cluster.push(nb); }
+    const cands=cluster.filter(c=>{
+      const s=c+COLS;
+      return s<grid.length && !grid[s] && reach.has(s) && elevMap[s]<2;
+    });
+    if(cands.length){
+      const face=cands[Math.floor(rng()*cands.length)];
+      ladders[face+COLS]={topZ:2*STEP, face};
+    }else{
+      for(const c of cluster) elevMap[c]=1;
+    }
+  }
+
   // chests: seeded shuffle of reachable floor, spaced apart and away from spawn
   const cells=[...reach];
   for(let i=cells.length-1;i>0;i--){ const j=Math.floor(rng()*(i+1)); const tmp=cells[i]; cells[i]=cells[j]; cells[j]=tmp; }
-  const picked=[], sx=spawnTile[0], sy=spawnTile[1];
+  const picked=[];
+  for(const cell of cells){                     // a few chests claim the high ground first
+    if(picked.length>=4) break;
+    if(!elevMap[cell]) continue;
+    const x=cell%COLS, y=(cell-x)/COLS;
+    if(Math.abs(x-sx)+Math.abs(y-sy)<4) continue;
+    let ok=true;
+    for(const p of picked) if(Math.abs(p[0]-x)+Math.abs(p[1]-y)<4){ ok=false; break; }
+    if(ok) picked.push([x,y]);
+  }
   for(const minD of [5,4,3,2]){
     for(const cell of cells){
       if(picked.length>=CHEST_COUNT) break;
@@ -298,14 +428,33 @@ function genWorld(hk){
     }
     if(picked.length>=CHEST_COUNT) break;
   }
-  chests=picked.map(([tx,ty],i)=>({i, x:(tx+0.5)*TILE, y:(ty+0.5)*TILE, phase:i*1.37}));
+  chests=picked.map(([tx,ty],i)=>({i, x:(tx+0.5)*TILE, y:(ty+0.5)*TILE, z:elevMap[ty*COLS+tx]*STEP, phase:i*1.37}));
   // which chests are guarded is seeded by the hour too
   const idxs=chests.map(c=>c.i);
   for(let i=idxs.length-1;i>0;i--){ const j=Math.floor(rng()*(i+1)); const tmp=idxs[i]; idxs[i]=idxs[j]; idxs[j]=tmp; }
   monsters=idxs.slice(0,GUARD_COUNT).map((ci,k)=>{
     const c=chests[ci];
-    return {x:c.x+12, y:c.y+10, hx:c.x, hy:c.y, aggro:false, phase:k*2.13, hitCD:0};
+    const ce=elevAt(c.x,c.y);
+    // patrol waypoints: spots with a clear straight walk to the chest at the same height
+    const nodes=[];
+    for(let tries=0; tries<40 && nodes.length<3; tries++){
+      const a=rng()*Math.PI*2, d=34+rng()*86;
+      const nx=c.x+Math.cos(a)*d, ny=c.y+Math.sin(a)*d;
+      if(!clearWalk(c.x,c.y,nx,ny,ce)) continue;
+      nodes.push([nx,ny]);
+    }
+    if(!nodes.length) nodes.push([c.x,c.y]);
+    const route=[];                       // loop back past the chest between waypoints
+    for(const n of nodes) route.push(n,[c.x,c.y]);
+    return {x:c.x, y:c.y, z:ce*STEP, elv:ce, cx:c.x, cy:c.y, route, ri:0, wait:0, stuck:0,
+            aggro:false, phase:k*2.13, hitCD:0};
   });
+}
+function clearWalk(x0,y0,x1,y1,e){
+  const steps=Math.max(1,Math.ceil(Math.hypot(x1-x0,y1-y0)/7));
+  for(let s=0;s<=steps;s++)
+    if(elevAt(x0+(x1-x0)*s/steps, y0+(y1-y0)*s/steps)!==e) return false;
+  return true;
 }
 
 /* ───────── loot tables ───────── */
@@ -376,13 +525,18 @@ const HATS={
 
 /* ───────── persistent state ───────── */
 let state={gold:0, looted:[], hourKey:0, deadline:0, px:0, py:0, luck:0, skin:'adventurer', hat:'none',
-  ownedSkins:['adventurer'], ownedHats:['none'],
+  ownedSkins:['adventurer'], ownedHats:['none'], seenIntro:false,
+  abil:{trap:false, instant:false, stealth:false}, instArmed:false, trapAt:null, snared:[], legged:[],
   stats:{runs:0, chests:0, legendaries:0, best:0, bestName:'—'}};
 try{
   const raw=localStorage.getItem(LS_KEY);
   if(raw){ const s=JSON.parse(raw); if(s && typeof s.gold==='number') state={...state, ...s, stats:{...state.stats, ...(s.stats||{})}}; }
 }catch(e){}
 const save=()=>{ try{ localStorage.setItem(LS_KEY, JSON.stringify(state)); }catch(e){} };
+state.abil={trap:false, instant:false, stealth:false, ...(state.abil||{})};
+state.snared=Array.isArray(state.snared)?state.snared:[];
+state.legged=Array.isArray(state.legged)?state.legged:[];
+if(!state.trapAt || typeof state.trapAt.x!=='number') state.trapAt=null;
 state.ownedSkins=[...new Set(['adventurer',...(state.ownedSkins||[])])].filter(id=>SKINS[id]);
 state.ownedHats=[...new Set(['none',...(state.ownedHats||[])])].filter(id=>HATS[id]);
 if(!SKINS[state.skin]||!state.ownedSkins.includes(state.skin)) state.skin='adventurer';
@@ -391,17 +545,36 @@ if(!HATS[state.hat]||!state.ownedHats.includes(state.hat)) state.hat='none';
 let looted=new Set();      // populated by the world init block at the bottom
 
 /* ───────── player ───────── */
-const player={x:TILE*2, y:TILE*2, face:1, moving:false, walk:0};
-const SPEED=190, PW=14, PH=10;     // collide box (feet)
+const player={x:TILE*2, y:TILE*2, z:0, vz:0, onGround:true, onLadder:false, face:1, moving:false, walk:0};
+const SPEED=190, PW=14, PH=10;             // collide box (feet)
+const GRAV=560, JUMP_V=150, CLIMB=72;      // jump clears one elevation step (14px), not two
 const keys=new Set();
 addEventListener('keydown',e=>{
   const k=e.key.toLowerCase();
   if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(k)||['w','a','s','d','e'].includes(k)) e.preventDefault();
   keys.add(k);
   if(k==='e') tryLoot();
+  if(k===' ') jump();
+  if(k==='1') useAbility('trap');
+  if(k==='2') useAbility('instant');
+  if(k==='3') useAbility('stealth');
   initAudio();
 });
 addEventListener('keyup',e=>keys.delete(e.key.toLowerCase()));
+
+function groundZUnder(){
+  const hw=PW/2, hh=PH/2;
+  let g=0;
+  for(const [ox,oy] of [[-hw,-hh],[hw,-hh],[-hw,hh],[hw,hh]]){
+    const f=floorZAt(player.x+ox,player.y+oy);
+    if(f<1e8 && f>g) g=f;
+  }
+  return g;
+}
+function jump(){
+  if(player.onLadder) return;
+  if(player.onGround){ player.vz=JUMP_V; player.onGround=false; sfx('jump'); }
+}
 
 let joyVec={x:0,y:0};                       // virtual joystick vector (touch)
 function move(dt){
@@ -411,19 +584,72 @@ function move(dt){
   if(keys.has('a')||keys.has('arrowleft'))dx--;
   if(keys.has('d')||keys.has('arrowright'))dx++;
   if(!dx&&!dy&&Math.hypot(joyVec.x,joyVec.y)>0.22){ dx=joyVec.x; dy=joyVec.y; }
+  const wantUp=dy<-0.3, wantDown=dy>0.3;
   const len=Math.hypot(dx,dy);
   player.moving=len>0.001;
-  if(!player.moving) return;
-  if(len>1){ dx/=len; dy/=len; }
-  if(dx) player.face=dx>0?1:-1;
-  player.walk+=dt*9;
-  const tryAxis=(nx,ny)=>{
-    const hw=PW/2, hh=PH/2;
-    if(!solid(nx-hw,ny-hh)&&!solid(nx+hw,ny-hh)&&!solid(nx-hw,ny+hh)&&!solid(nx+hw,ny+hh)){ player.x=nx; player.y=ny; }
-  };
-  tryAxis(player.x+dx*SPEED*dt, player.y);
-  tryAxis(player.x, player.y+dy*SPEED*dt);
+  if(player.moving){
+    if(len>1){ dx/=len; dy/=len; }
+    if(dx) player.face=dx>0?1:-1;
+    player.walk+=dt*9;
+    const tryAxis=(nx,ny)=>{
+      const hw=PW/2, hh=PH/2, z=player.z;
+      if(!blockedFor(nx-hw,ny-hh,z)&&!blockedFor(nx+hw,ny-hh,z)&&
+         !blockedFor(nx-hw,ny+hh,z)&&!blockedFor(nx+hw,ny+hh,z)){ player.x=nx; player.y=ny; }
+    };
+    tryAxis(player.x+dx*SPEED*dt, player.y);
+    tryAxis(player.x, player.y+dy*SPEED*dt);
+  }
+  // vertical: ladders override gravity
+  const gz=groundZUnder();
+  const lad=ladders[tIdx(player.x,player.y)];
+  if(lad && (player.z>gz+0.5 || (wantUp && player.z<lad.topZ))){
+    player.onLadder=true;
+    player.vz=0;
+    if(wantUp)        player.z=Math.min(lad.topZ, player.z+CLIMB*dt);
+    else if(wantDown) player.z=Math.max(gz,       player.z-CLIMB*dt);
+    player.onGround=player.z<=gz+0.5;
+  }else{
+    player.onLadder=false;
+    player.vz-=GRAV*dt;
+    player.z+=player.vz*dt;
+    if(player.z<=gz){ player.z=gz; player.vz=0; player.onGround=true; }
+    else player.onGround=false;
+  }
 }
+
+/* ───────── abilities: one use of each per hourly run ───────── */
+let stealthUntil=0;                                   // performance.now() deadline
+const stealthed=()=>performance.now()<stealthUntil;
+const introOpen=()=>$('introModal').style.display==='flex';
+const abilSlots={trap:$('ab-trap'), instant:$('ab-instant'), stealth:$('ab-stealth')};
+function useAbility(which){
+  if(shopOpen()||introOpen()) return;
+  if(runLocked()){ toast('The run is over — abilities recharge with the next hour.'); return; }
+  if(state.abil[which]){ toast('Already spent this run — it comes back next hour.'); return; }
+  state.abil[which]=true;
+  if(which==='trap'){
+    state.trapAt={x:Math.round(player.x), y:Math.round(player.y), elv:Math.max(0,elevAt(player.x,player.y))};
+    toast('🪤 Trap set — the first guardian to step on it is stuck for the rest of the run.');
+  }else if(which==='instant'){
+    state.instArmed=true;
+    toast('⚡ Plunder Surge armed — your next chest opens instantly!');
+  }else{
+    stealthUntil=performance.now()+5000;
+    for(const m of monsters) m.aggro=false;
+    toast('👻 Phased out — guardians can\'t see you for 5s (or until you start opening).');
+  }
+  save();
+  sfx('ability');
+}
+function updateAbilBar(){
+  const lock=runLocked();
+  const armed={trap:!!state.trapAt, instant:!!state.instArmed, stealth:stealthed()};
+  for(const k in abilSlots){
+    abilSlots[k].classList.toggle('armed', armed[k]&&!lock);
+    abilSlots[k].classList.toggle('used', lock||(state.abil[k]&&!armed[k]));
+  }
+}
+for(const k in abilSlots) abilSlots[k].addEventListener('click',()=>{ initAudio(); useAbility(k); });
 
 /* ───────── chests & looting ───────── */
 const runComplete=()=>chests.length>0 && looted.size>=chests.length;
@@ -432,25 +658,50 @@ const runLocked=()=>runComplete()||runExpired();
 const msToNextHour=()=>(state.hourKey+1)*HOUR-Date.now();
 
 /* ───────── chest guardians ─────────
-   harmless little monsters with short aggro ranges parked on seeded chests;
+   harmless little monsters that patrol a beat around their chest;
    a hit only interrupts the opening cast — no damage, no fighting back */
-const M_SPEED=115, M_AGGRO=85, M_LEASH=175, M_HIT=16;   // slower than the player — always kiteable
+const M_SPEED=115, M_AGGRO=85, M_LEASH=175, M_HIT=16, M_PATROL=46;   // slower than the player — always kiteable
+const monBlocked=(px,py,m)=>elevAt(px,py)!==m.elv;     // guards stay on their own level (walls are -1)
 function updateMonsters(dt,t){
+  const st=stealthed();
   for(const m of monsters){
-    const pd=Math.hypot(player.x-m.x, player.y-m.y);
-    const hd=Math.hypot(m.hx-m.x, m.hy-m.y);
-    if(m.aggro){ if(hd>M_LEASH) m.aggro=false; }
-    else if(pd<M_AGGRO && hd<M_LEASH*0.7) m.aggro=true;
-    let tx,ty,sp;
-    if(m.aggro){ tx=player.x; ty=player.y; sp=M_SPEED; }
-    else{ tx=m.hx+Math.sin(t*0.7+m.phase)*16; ty=m.hy+Math.cos(t*0.9+m.phase)*12; sp=42; }
-    const d=Math.hypot(tx-m.x,ty-m.y);
-    if(d>2){
-      const nx=m.x+(tx-m.x)/d*sp*dt, ny=m.y+(ty-m.y)/d*sp*dt;
-      if(!solid(nx,m.y)) m.x=nx;
-      if(!solid(m.x,ny)) m.y=ny;
+    if(state.trapAt && !m.snared && m.elv===state.trapAt.elv
+       && Math.hypot(m.x-state.trapAt.x, m.y-state.trapAt.y)<13){
+      m.snared=true;
+      state.snared.push(monsters.indexOf(m));
+      state.trapAt=null;
+      save();
+      toast('🪤 Snap! A guardian is stuck for the rest of the run.');
+      sfx('snare');
     }
-    if(pd<M_HIT && t>m.hitCD){
+    if(m.snared) continue;
+    const pd=Math.hypot(player.x-m.x, player.y-m.y);
+    const zd=Math.abs(player.z-m.z);
+    const cd=Math.hypot(m.cx-m.x, m.cy-m.y);
+    if(st) m.aggro=false;
+    else if(m.aggro){ if(cd>M_LEASH || zd>10) m.aggro=false; }
+    else if(pd<M_AGGRO && zd<10 && cd<M_LEASH*0.7) m.aggro=true;
+    let tx=m.x, ty=m.y, sp=0;
+    if(m.aggro){ tx=player.x; ty=player.y; sp=M_SPEED; }
+    else if(m.wait>0) m.wait-=dt;
+    else{
+      const node=m.route[m.ri];
+      tx=node[0]; ty=node[1]; sp=M_PATROL;
+      if(Math.hypot(tx-m.x,ty-m.y)<3){ m.ri=(m.ri+1)%m.route.length; m.wait=0.4+((m.phase*5.7)%1)*1.1; sp=0; }
+    }
+    if(sp>0){
+      const d=Math.hypot(tx-m.x,ty-m.y), ox=m.x, oy=m.y;
+      if(d>2){
+        const nx=m.x+(tx-m.x)/d*sp*dt, ny=m.y+(ty-m.y)/d*sp*dt;
+        if(!monBlocked(nx,m.y,m)) m.x=nx;
+        if(!monBlocked(m.x,ny,m)) m.y=ny;
+      }
+      if(!m.aggro && Math.abs(m.x-ox)+Math.abs(m.y-oy)<sp*dt*0.25){   // wedged on a corner — skip ahead
+        m.stuck+=dt;
+        if(m.stuck>0.7){ m.stuck=0; m.ri=(m.ri+1)%m.route.length; }
+      }else m.stuck=0;
+    }
+    if(!st && pd<M_HIT && zd<10 && t>m.hitCD){
       m.hitCD=t+0.8;
       if(casting){ cancelCast('⚡ A chest guardian smacked you — opening interrupted!'); sfx('hit'); }
     }
@@ -458,23 +709,41 @@ function updateMonsters(dt,t){
 }
 function drawMonster(m,t){
   ctx.save();
-  ctx.translate(m.x,m.y);
+  ctx.translate(m.x,projY(m.y,m.z));
   ctx.fillStyle='rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(0,5,8,3.5,0,0,7); ctx.fill();
-  const bob=Math.sin(t*6+m.phase)*1.5;
+  const bob=m.snared?0:Math.sin(t*6+m.phase)*1.5;
   ctx.translate(0,bob);
-  ctx.fillStyle=m.aggro?'#a83a3a':'#56a44a';
+  ctx.fillStyle=m.snared?'#4a7a42':(m.aggro?'#a83a3a':'#56a44a');
   ctx.beginPath(); ctx.roundRect(-8,-12,16,16,6); ctx.fill();
-  ctx.fillStyle=m.aggro?'#7d2828':'#3f7a36';
+  ctx.fillStyle=m.snared?'#365c30':(m.aggro?'#7d2828':'#3f7a36');
   ctx.fillRect(-8,0,16,4);
   const lx=player.x>m.x?1:-1;
   ctx.fillStyle='#fff';
   ctx.fillRect(-5,-8,4,4); ctx.fillRect(2,-8,4,4);
   ctx.fillStyle='#111';
   ctx.fillRect(-4+lx,-7,2,2); ctx.fillRect(3+lx,-7,2,2);
-  if(m.aggro){
+  if(m.snared){                                    // clamped trap jaws around its feet
+    ctx.strokeStyle='#cfd6dd'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.ellipse(0,3,10,4.5,0,0,7); ctx.stroke();
+    ctx.fillStyle='#e8edf2';
+    ctx.fillRect(-11,1.5,3,3); ctx.fillRect(8,1.5,3,3);
+    ctx.fillStyle='#9aa6b5'; ctx.font='bold 10px Segoe UI'; ctx.textAlign='center';
+    ctx.fillText('z',7,-15+Math.sin(t*2+m.phase)*1.5);
+  }else if(m.aggro){
     ctx.fillStyle='#ff5555'; ctx.font='bold 11px Segoe UI'; ctx.textAlign='center';
     ctx.fillText('!',0,-17);
   }
+  ctx.restore();
+}
+function drawTrap(tr){
+  ctx.save();
+  ctx.translate(tr.x, projY(tr.y, tr.elv*STEP));
+  ctx.fillStyle='rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(0,2,9,3.2,0,0,7); ctx.fill();
+  ctx.strokeStyle='#aab4bf'; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.ellipse(0,0,8,4.5,0,0,7); ctx.stroke();
+  ctx.fillStyle='#e8edf2';
+  ctx.fillRect(-9.5,-1.5,3,3); ctx.fillRect(6.5,-1.5,3,3);
+  ctx.fillRect(-1.5,-6,3,3); ctx.fillRect(-1.5,3,3,3);
   ctx.restore();
 }
 
@@ -483,6 +752,7 @@ function nearestChest(){
   let best=null, bd=44*44;
   for(const c of chests){
     if(looted.has(c.i)) continue;
+    if(Math.abs(c.z-player.z)>12) continue;       // must be on the chest's level
     const d=(c.x-player.x)**2+(c.y-player.y)**2;
     if(d<bd){bd=d; best=c;}
   }
@@ -493,13 +763,19 @@ let popupTimer=null;
 const CAST_MS=1500;
 let casting=null;                     // {chest, start}
 function tryLoot(){
-  if(shopOpen()||casting) return;
+  if(shopOpen()||introOpen()||casting||!player.onGround) return;
   const c=nearestChest();
   if(!c) return;
   if(!state.deadline){           // first chest of the hour starts the 5-minute clock
     state.deadline=Date.now()+RUN_MS;
     save();
     toast('⏱ The run begins — 5:00 to clear every chest!');
+  }
+  stealthUntil=0;                // interacting with a chest breaks the phase cloak
+  if(state.instArmed){
+    state.instArmed=false;
+    lootChest(c);
+    return;
   }
   casting={chest:c, start:performance.now()};
 }
@@ -516,6 +792,7 @@ function lootChest(c){
   const leg=items.find(it=>it.legendary);
   if(leg){
     state.stats.legendaries++;
+    state.legged.push(c.i);
     if(leg.value>state.stats.best){ state.stats.best=leg.value; state.stats.bestName=leg.name; }
     legendaryFX(leg);
     sfx('legendary');
@@ -559,9 +836,16 @@ function legendaryFX(leg){
   setTimeout(()=>b.classList.remove('show'),3800);
 }
 
+let shareText='';
 function showEndModal(title,desc){
   $('modalH').textContent=title;
   $('modalP').innerHTML=desc;
+  // wordle-style result: 🟨 looted, 🟧 held a legendary, ⬛ missed
+  const sq=chests.map(c=>looted.has(c.i) ? (state.legged.includes(c.i)?'🟧':'🟨') : '⬛');
+  const lines=[];
+  for(let i=0;i<sq.length;i+=4) lines.push(sq.slice(i,i+4).join(''));
+  $('wordleGrid').innerHTML=lines.join('<br>');
+  shareText=`💰 Chest Run #${state.hourKey} — ${looted.size}/${chests.length}\n`+lines.join('\n');
   $('modalStats').innerHTML=
     `Runs completed: <b>${state.stats.runs}</b> · Chests looted: <b>${state.stats.chests}</b> · `+
     `Legendaries: <b style="color:#ff9d2e">${state.stats.legendaries}</b><br>`+
@@ -577,6 +861,11 @@ function finishRun(){
     'Every chest cleared in time!<br>New treasure is stocked <b style="color:#fff">on the hour, every hour</b> — with a brand-new layout.'),1100);
 }
 $('modalBtn').onclick=()=>$('modal').style.display='none';
+$('shareBtn').onclick=()=>{
+  if(!shareText) return;
+  if(navigator.clipboard) navigator.clipboard.writeText(shareText)
+    .then(()=>toast('📋 Result copied — go brag!')).catch(()=>toast('Could not copy, sorry.'));
+};
 
 let toastTimer=null;
 function toast(msg){
@@ -691,30 +980,62 @@ function sfx(kind){
   if(kind==='legendary'){ [523,659,784,1047,1319].forEach((f,i)=>tone(f,0.5,'triangle',0.13,i*0.11)); tone(110,0.7,'sawtooth',0.05,0); }
   if(kind==='respawn'){ tone(392,0.2,'triangle',0.1,0); tone(523,0.3,'triangle',0.1,0.15); }
   if(kind==='hit'){ tone(95,0.12,'square',0.16,0); tone(60,0.18,'square',0.12,0.04); }
+  if(kind==='jump'){ tone(240,0.07,'square',0.06,0); tone(360,0.09,'square',0.05,0.05); }
+  if(kind==='ability'){ tone(660,0.12,'triangle',0.1,0); tone(880,0.16,'triangle',0.08,0.07); }
+  if(kind==='snare'){ tone(180,0.07,'square',0.14,0); tone(120,0.12,'square',0.12,0.05); tone(700,0.05,'square',0.06,0); }
 }
 
-/* ───────── drawing ───────── */
-function drawMap(t){
-  for(let y=0;y<ROWS;y++) for(let x=0;x<COLS;x++){
-    const px=x*TILE, py=y*TILE;
-    if(grid[y*COLS+x]){
-      ctx.fillStyle='#2a3240'; ctx.fillRect(px,py,TILE,TILE);
-      ctx.fillStyle='#343e4f'; ctx.fillRect(px,py,TILE,5);
-      ctx.fillStyle='#222936'; ctx.fillRect(px,py+TILE-4,TILE,4);
-      if((x*7+y*13)%5===0){ ctx.fillStyle='#303948'; ctx.fillRect(px+6,py+10,8,3); }
+/* ───────── drawing ─────────
+   tilted oblique projection: tile tops are 32×24, elevation lifts a tile by
+   STEP px per level and exposes a cliff face on its south edge. Rows are
+   painted north→south with entities interleaved so cliffs occlude correctly. */
+function drawLadderFace(px,fy,fh){
+  ctx.fillStyle='#8a6a35';
+  ctx.fillRect(px+11,fy-3,2,fh+4); ctx.fillRect(px+19,fy-3,2,fh+4);
+  ctx.fillStyle='#b08c4a';
+  for(let r=fy;r<fy+fh;r+=5) ctx.fillRect(px+11,r,10,2);
+}
+function drawTerrainRow(y){
+  const by=PAD+y*TILEY;
+  for(let x=0;x<COLS;x++){
+    const i=y*COLS+x, px=x*TILE;
+    const south=y<ROWS-1 ? i+COLS : -1;
+    const sIsWall=south>=0 && grid[south]===1;
+    const sZ=south<0 ? 0 : (grid[south] ? WALLZ : elevMap[south]*STEP);
+    if(grid[i]){
+      const topY=by-WALLZ;
+      ctx.fillStyle='#39455a'; ctx.fillRect(px,topY,TILE,TILEY);
+      ctx.fillStyle='#445268'; ctx.fillRect(px,topY,TILE,4);
+      if((x*7+y*13)%5===0){ ctx.fillStyle='#334052'; ctx.fillRect(px+6,topY+9,9,3); }
+      if(!sIsWall){
+        const fh=WALLZ-sZ;
+        ctx.fillStyle='#252d3b'; ctx.fillRect(px,topY+TILEY,TILE,fh);
+        ctx.fillStyle='#1c2330'; ctx.fillRect(px,topY+TILEY+fh-3,TILE,3);
+        if(fh>12 && (x*11+y*5)%4===0){ ctx.fillStyle='#2b3444'; ctx.fillRect(px+5,topY+TILEY+4,7,2); }
+      }
     }else{
+      const ez=elevMap[i]*STEP, topY=by-ez;
       const h=(x*31+y*57+worldHK*7)%7;
       ctx.fillStyle=h===0?theme.f1:theme.f2;
-      ctx.fillRect(px,py,TILE,TILE);
-      if((x*13+y*29+worldHK)%11===0){ ctx.fillStyle=theme.tuft; ctx.fillRect(px+10,py+14,3,6); ctx.fillRect(px+15,py+12,3,8); }
-      if((x*17+y*23+worldHK*3)%19===0){ ctx.fillStyle=theme.rock; ctx.fillRect(px+8,py+20,12,4); }
+      ctx.fillRect(px,topY,TILE,TILEY);
+      if(elevMap[i]){ ctx.fillStyle=`rgba(255,250,225,${elevMap[i]*0.05})`; ctx.fillRect(px,topY,TILE,TILEY); }
+      if((x*13+y*29+worldHK)%11===0){ ctx.fillStyle=theme.tuft; ctx.fillRect(px+10,topY+10,3,5); ctx.fillRect(px+15,topY+9,3,6); }
+      if((x*17+y*23+worldHK*3)%19===0){ ctx.fillStyle=theme.rock; ctx.fillRect(px+8,topY+15,12,3); }
+      if(!sIsWall && sZ<ez){
+        const fh=ez-sZ;
+        ctx.fillStyle=theme.cliff;  ctx.fillRect(px,topY+TILEY,TILE,fh);
+        ctx.fillStyle=theme.cliff2; ctx.fillRect(px,topY+TILEY+fh-3,TILE,3);
+        if(fh>18){ ctx.fillStyle='rgba(0,0,0,.14)'; ctx.fillRect(px,topY+TILEY+9,TILE,2); }
+        const lad=ladders[south];
+        if(lad && lad.face===i) drawLadderFace(px,topY+TILEY,fh);
+      }
     }
   }
 }
 function drawChest(c,t){
   const open=looted.has(c.i), ghost=runLocked();
   ctx.save();
-  ctx.translate(c.x,c.y);
+  ctx.translate(c.x,projY(c.y,c.z));
   if(ghost) ctx.globalAlpha=0.22;
   ctx.fillStyle='rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(0,9,14,5,0,0,7); ctx.fill();
   if(open){
@@ -775,11 +1096,17 @@ function renderDude(g, skinId, hatId, legA){
   drawHat(g,hatId);
 }
 function drawPlayer(t){
-  const bob=player.moving?Math.sin(player.walk)*1.6:0;
-  const legA=player.moving?Math.sin(player.walk)*4:0;
+  const gz=groundZUnder(), air=player.z-gz;
+  const sc=Math.max(0.45,1-air/70);                 // shadow stays on the ground, shrinks with height
   ctx.save();
-  ctx.translate(player.x, player.y);
-  ctx.fillStyle='rgba(0,0,0,.4)'; ctx.beginPath(); ctx.ellipse(0,6,9,4,0,0,7); ctx.fill();
+  ctx.translate(player.x, projY(player.y,gz));
+  ctx.fillStyle='rgba(0,0,0,.4)'; ctx.beginPath(); ctx.ellipse(0,5,9*sc,3.6*sc,0,0,7); ctx.fill();
+  ctx.restore();
+  const bob=player.moving&&player.onGround?Math.sin(player.walk)*1.6:0;
+  const legA=player.onGround?(player.moving?Math.sin(player.walk)*4:0):4;
+  ctx.save();
+  ctx.translate(player.x, projY(player.y,player.z));
+  if(stealthed()) ctx.globalAlpha=0.32+Math.sin(t*10)*0.08;   // phased out
   ctx.scale(player.face,1);
   ctx.translate(0,bob);
   renderDude(ctx, state.skin, state.hat, legA);
@@ -787,7 +1114,7 @@ function drawPlayer(t){
 }
 function drawCastBar(now){
   const p=Math.min(1,(now-casting.start)/CAST_MS);
-  const x=player.x, y=player.y-34;
+  const x=player.x, y=projY(player.y,player.z)-34;
   ctx.save();
   ctx.fillStyle='rgba(12,15,21,.9)';
   ctx.strokeStyle='#3a4456'; ctx.lineWidth=1;
@@ -800,7 +1127,7 @@ function drawCastBar(now){
 }
 function drawPrompt(c){
   ctx.save();
-  ctx.translate(c.x, c.y-30);
+  ctx.translate(c.x, projY(c.y,c.z)-30);
   ctx.fillStyle='rgba(12,15,21,.92)';
   ctx.strokeStyle='#f5c542'; ctx.lineWidth=1.5;
   const w=78,h=20;
@@ -825,7 +1152,11 @@ function newHour(){
   genWorld(currentHour());
   looted.clear();
   state.hourKey=currentHour(); state.looted=[]; state.deadline=0;
+  state.abil={trap:false, instant:false, stealth:false};
+  state.instArmed=false; state.trapAt=null; state.snared=[]; state.legged=[];
+  stealthUntil=0;
   player.x=(spawnTile[0]+0.5)*TILE; player.y=(spawnTile[1]+0.5)*TILE;
+  player.z=groundZUnder(); player.vz=0;
   state.px=Math.round(player.x); state.py=Math.round(player.y);
   expiredShown=false;
   casting=null;
@@ -861,6 +1192,7 @@ function hud(){
       rt.classList.toggle('low', left<60000);
     } else rt.style.display='none';
   }
+  updateAbilBar();
 }
 
 /* ───────── touch controls ───────── */
@@ -891,6 +1223,7 @@ if(IS_TOUCH){
   joy.addEventListener('pointerup',joyEnd);
   joy.addEventListener('pointercancel',joyEnd);
   lootBtnEl.addEventListener('pointerdown',e=>{ e.preventDefault(); initAudio(); tryLoot(); });
+  $('jumpBtn').addEventListener('pointerdown',e=>{ e.preventDefault(); initAudio(); jump(); });
   cv.addEventListener('contextmenu',e=>e.preventDefault());
 }
 
@@ -902,13 +1235,24 @@ if(state.hourKey===currentHour()){
   looted=new Set((state.looted||[]).filter(i=>Number.isInteger(i)&&i>=0&&i<chests.length));
   player.x=state.px||((spawnTile[0]+0.5)*TILE);
   player.y=state.py||((spawnTile[1]+0.5)*TILE);
-  if(solid(player.x,player.y)){ player.x=(spawnTile[0]+0.5)*TILE; player.y=(spawnTile[1]+0.5)*TILE; }
+  if(wallAt(player.x,player.y)){ player.x=(spawnTile[0]+0.5)*TILE; player.y=(spawnTile[1]+0.5)*TILE; }
+  for(const i of state.snared) if(monsters[i]) monsters[i].snared=true;   // re-apply trap victims
 }else{
   state.hourKey=currentHour(); state.looted=[]; state.deadline=0;
+  state.abil={trap:false, instant:false, stealth:false};
+  state.instArmed=false; state.trapAt=null; state.snared=[]; state.legged=[];
   player.x=(spawnTile[0]+0.5)*TILE; player.y=(spawnTile[1]+0.5)*TILE;
   state.px=Math.round(player.x); state.py=Math.round(player.y);
   save();
 }
+player.z=groundZUnder(); player.vz=0;
+updateAbilBar();
+if(!state.seenIntro) $('introModal').style.display='flex';
+$('introBtn').onclick=()=>{
+  $('introModal').style.display='none';
+  if(!state.seenIntro){ state.seenIntro=true; save(); }
+  initAudio();
+};
 expiredShown=runExpired();   // no popup replay on refresh — the chip shows the wait
 if(runLocked()) setTimeout(()=>toast("⏳ This hour's run is done — a new one arrives on the hour."),600);
 
@@ -926,17 +1270,28 @@ function frame(now){
   move(dt);
   updateMonsters(dt,t);
   if(casting){
-    if(player.moving) cancelCast();                          // moving breaks the cast
+    if(player.moving||!player.onGround) cancelCast();        // moving or jumping breaks the cast
     else{
       const c=casting.chest;
-      if(looted.has(c.i) || runLocked() || (c.x-player.x)**2+(c.y-player.y)**2 > 48*48) cancelCast();
+      if(looted.has(c.i) || runLocked() || Math.abs(c.z-player.z)>12
+         || (c.x-player.x)**2+(c.y-player.y)**2 > 48*48) cancelCast();
       else if(now-casting.start>=CAST_MS){ casting=null; lootChest(c); }
     }
   }
-  drawMap(t);
-  for(const c of chests) drawChest(c,t);
-  for(const m of monsters) drawMonster(m,t);
-  drawPlayer(t);
+  ctx.fillStyle='#0b0e13'; ctx.fillRect(0,0,cv.width,cv.height);
+  const ents=[];
+  if(state.trapAt && !runLocked()) ents.push({y:state.trapAt.y-0.01, f:()=>drawTrap(state.trapAt)});
+  for(const c of chests) ents.push({y:c.y, f:()=>drawChest(c,t)});
+  for(const m of monsters) ents.push({y:m.y, f:()=>drawMonster(m,t)});
+  ents.push({y:player.y, f:()=>drawPlayer(t)});
+  ents.sort((a,b)=>a.y-b.y);
+  let ei=0;
+  for(let row=0;row<ROWS;row++){
+    drawTerrainRow(row);
+    const lim=(row+1)*TILE;
+    while(ei<ents.length && ents[ei].y<lim){ ents[ei].f(); ei++; }
+  }
+  while(ei<ents.length){ ents[ei].f(); ei++; }
   if(casting) drawCastBar(now);
   const near=casting?null:nearestChest();
   if(near) drawPrompt(near);
