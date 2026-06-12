@@ -71,7 +71,17 @@
   @media (orientation: portrait){ body.mobile #rotate { display:flex; } }
 
   .modal { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,.55); z-index:10; }
-  .modal .box { max-width:560px; padding:28px 34px; text-align:center; pointer-events:auto; }
+  .modal .box { max-width:560px; max-height:92vh; max-height:92dvh; overflow-y:auto; -webkit-overflow-scrolling:touch;
+                touch-action:pan-y; padding:28px 34px; text-align:center; pointer-events:auto; }
+  .mobileonly { display:none; }
+  body.mobile .mobileonly { display:block; }
+  body.mobile .desktoponly { display:none; }
+  body.mobile .modal .box { max-width:86vw; max-height:88vh; max-height:88dvh; padding:14px 18px; }
+  body.mobile .modal h1 { font-size:21px; margin-bottom:6px; }
+  body.mobile .modal h2 { font-size:18px; }
+  body.mobile .modal p { font-size:12.5px; line-height:1.45; margin-bottom:6px; }
+  body.mobile .modal .keys { font-size:12px; line-height:1.55; margin-bottom:8px; }
+  body.mobile .modal button { font-size:14px; padding:7px 18px; }
   .modal h1 { color:#ffd97a; font-size:30px; margin-bottom:10px; }
   .modal h2 { color:#ffd97a; font-size:22px; margin-bottom:10px; }
   .modal p { font-size:15px; line-height:1.55; margin-bottom:10px; }
@@ -121,11 +131,17 @@
     at dusk. Gold buys food at the market, so you can retire from foraging.</p>
     <p>Beware wolves at night — and watch the minimap: foreign banners camp far beyond the hills.
     Their scouts will find your town eventually, and their envoys do not take refusal kindly.</p>
-    <div class="keys">
+    <div class="keys desktoponly">
       <b>WASD</b> — move &nbsp;·&nbsp; <b>Mouse</b> — look (click world to capture, Esc to free)<br>
       <b>LMB / Space</b> — attack where you face &nbsp;·&nbsp; <b>E</b> — interact / gather / apply<br>
       <b>F</b> — eat food &nbsp;·&nbsp; <b>B</b> — build your house (30 wood), sleep in it at night<br>
-      <b>Wheel</b> — zoom
+      <b>Wheel</b> — zoom &nbsp;·&nbsp; <b>P</b> — pause &amp; save
+    </div>
+    <div class="keys mobileonly">
+      <b>Left thumb</b> — joystick to move &nbsp;·&nbsp; <b>drag screen</b> — look around<br>
+      <b>⚔</b> — attack &nbsp;·&nbsp; <b>✋</b> — interact / gather / apply (glows when ready)<br>
+      <b>🍖</b> — eat &nbsp;·&nbsp; <b>🔨</b> — build (your house costs 30 wood)<br>
+      <b>☰</b> — pause &amp; save
     </div><br>
     <button id="startbtn">Begin Day 1</button>
     <button id="continuebtn" style="display:none;">Continue</button>
