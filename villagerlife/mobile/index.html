@@ -1,1 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>A Villager's Life</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html,body { width:100%; height:100%; overflow:hidden; background:#000; font-family:Georgia,'Times New Roman',serif;
+              position:fixed; inset:0; touch-action:none; overscroll-behavior:none; -webkit-user-select:none; user-select:none; }
+  canvas { display:block; }
+  .panel { background:rgba(20,16,10,.78); border:1px solid #8a6d3b; border-radius:8px; color:#e8d9b0; }
 
+  #hud { position:fixed; inset:0; pointer-events:none; }
+
+  #res { position:absolute; top:12px; left:12px; padding:8px 14px; font-size:17px; display:flex; gap:18px; }
+  #res span b { color:#fff; }
+
+  #clock { position:absolute; top:12px; right:12px; padding:8px 14px; font-size:16px; text-align:right; }
+
+  #bars { position:absolute; top:64px; left:12px; width:210px; padding:8px 10px; }
+  .barwrap { margin:4px 0; }
+  .barlabel { font-size:12px; letter-spacing:1px; color:#cbb88a; }
+  .bar { height:12px; background:#241c10; border:1px solid #5d4a26; border-radius:6px; overflow:hidden; margin-top:2px; }
+  .bar > div { height:100%; width:100%; transition:width .25s; }
+  #hpbar > div { background:linear-gradient(#e0534a,#9c2e27); }
+  #hungerbar > div { background:linear-gradient(#e8a33d,#b06f1d); }
+
+  #jobpanel { position:absolute; top:64px; right:12px; width:250px; padding:10px 12px; font-size:14px; display:none; }
+  #jobpanel h3 { font-size:15px; color:#ffd97a; margin-bottom:4px; }
+  #jobquota { color:#bfe8a0; }
+
+  #prompt { position:absolute; bottom:96px; left:50%; transform:translateX(-50%); padding:8px 18px; font-size:17px; color:#ffe9b0; display:none; white-space:nowrap; }
+  #prompt b { color:#ffd97a; }
+
+  #log { position:absolute; bottom:48px; left:12px; width:380px; font-size:14px; pointer-events:none; }
+  #log div { margin-top:3px; padding:3px 10px; background:rgba(20,16,10,.6); border-radius:6px; color:#e8d9b0; opacity:1; transition:opacity 1.2s; }
+
+  #help { position:absolute; bottom:10px; left:50%; transform:translateX(-50%); font-size:12.5px; color:#bca97c; background:rgba(20,16,10,.55); padding:4px 14px; border-radius:6px; white-space:nowrap; }
+
+  #minimap { position:absolute; bottom:48px; right:12px; width:180px; height:180px; border:1px solid #8a6d3b; border-radius:8px; background:#3e5d33; }
+
+  /* ---------- mobile / touch ---------- */
+  #touchui { display:none; }
+  .tbtn { position:fixed; border-radius:50%; background:rgba(20,16,10,.55); border:2px solid #8a6d3b; color:#ffe9b0;
+          align-items:center; justify-content:center; pointer-events:auto; z-index:5; font-family:inherit; display:flex; }
+  #tbattack   { width:74px; height:74px; right:20px;  bottom:26px;  font-size:30px; }
+  #tbinteract { width:60px; height:60px; right:108px; bottom:44px;  font-size:24px; }
+  #tbinteract.avail { border-color:#ffd97a; background:rgba(122,91,42,.8); }
+  #tbeat      { width:52px; height:52px; right:34px;  bottom:118px; font-size:22px; }
+  #tbbuild    { width:52px; height:52px; right:122px; bottom:124px; font-size:22px; }
+  #burger { position:fixed; width:46px; height:46px; top:10px; right:10px; border-radius:10px; font-size:22px;
+            background:rgba(20,16,10,.7); border:1px solid #8a6d3b; color:#ffe9b0; z-index:6; display:none;
+            align-items:center; justify-content:center; pointer-events:auto; }
+  #joyzone { position:fixed; left:0; bottom:0; width:45%; height:60%; pointer-events:auto; z-index:4; }
+  #joybase { position:fixed; width:110px; height:110px; border-radius:50%; border:2px solid rgba(232,217,176,.5);
+             background:rgba(20,16,10,.25); display:none; z-index:5; pointer-events:none; transform:translate(-50%,-50%); }
+  #joyknob { position:fixed; width:48px; height:48px; border-radius:50%; background:rgba(232,217,176,.6);
+             display:none; z-index:5; pointer-events:none; transform:translate(-50%,-50%); }
+  #rotate { position:fixed; inset:0; background:#14100a; color:#ffd97a; z-index:50; display:none;
+            align-items:center; justify-content:center; font-size:22px; text-align:center; padding:20px; }
+  body.mobile #touchui { display:block; pointer-events:none; }
+  body.mobile #burger { display:flex; }
+  body.mobile #help { display:none; }
+  body.mobile #clock { right:64px; }
+  body.mobile #minimap { left:12px; right:auto; top:170px; bottom:auto; width:130px; height:130px; }
+  body.mobile #bars { width:150px; }
+  body.mobile #log { width:240px; font-size:12px; }
+  body.mobile #res { font-size:14px; padding:6px 10px; gap:10px; }
+  body.mobile #jobpanel { width:200px; font-size:12.5px; }
+  @media (orientation: portrait){ body.mobile #rotate { display:flex; } }
+
+  .modal { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,.55); z-index:10; }
+  .modal .box { max-width:560px; padding:28px 34px; text-align:center; pointer-events:auto; }
+  .modal h1 { color:#ffd97a; font-size:30px; margin-bottom:10px; }
+  .modal h2 { color:#ffd97a; font-size:22px; margin-bottom:10px; }
+  .modal p { font-size:15px; line-height:1.55; margin-bottom:10px; }
+  .modal .keys { text-align:left; display:inline-block; font-size:14.5px; line-height:1.7; margin-bottom:14px; }
+  .modal button { pointer-events:auto; font-family:inherit; font-size:17px; padding:9px 26px; margin:4px; background:#7a5b2a; color:#ffe9b0; border:1px solid #c8a558; border-radius:8px; cursor:pointer; }
+  .modal button:hover { background:#94702f; }
+  #shop { display:none; }
+  .shoprow { display:flex; justify-content:space-between; align-items:center; gap:20px; margin:6px 0; font-size:15.5px; }
+  .shoprow button { font-size:14px; padding:5px 16px; margin:0; }
+  #death { display:none; }
+  #death h1 { color:#e0534a; }
+  .hidden { display:none !important; }
+</style>
+</head>
+<body>
+<div id="hud">
+  <div id="res" class="panel">
+    <span>🪵 <b id="rwood">0</b></span>
+    <span>🍖 <b id="rfood">0</b></span>
+    <span>🪨 <b id="rstone">0</b></span>
+    <span>🪙 <b id="rgold">0</b></span>
+  </div>
+  <div id="clock" class="panel"><span id="dayno">Day 1</span> · <span id="daytime">Morning</span></div>
+  <div id="bars" class="panel">
+    <div class="barwrap"><div class="barlabel">HEALTH</div><div class="bar" id="hpbar"><div></div></div></div>
+    <div class="barwrap"><div class="barlabel">HUNGER</div><div class="bar" id="hungerbar"><div></div></div></div>
+  </div>
+  <div id="jobpanel" class="panel">
+    <h3 id="jobtitle">Job</h3>
+    <div id="jobquota"></div>
+    <div id="jobwage" style="color:#ffd97a;"></div>
+  </div>
+  <div id="prompt" class="panel"></div>
+  <canvas id="minimap" width="180" height="180"></canvas>
+  <div id="log"></div>
+  <div id="help">WASD move · mouse look (click world to capture) · LMB/Space attack · E interact · F eat · B build · P pause/save · wheel zoom</div>
+</div>
+
+<div id="intro" class="modal">
+  <div class="box panel">
+    <h1>A Villager's Life</h1>
+    <p>You are a humble villager. Around you, a township will rise in real time —
+    builders raising houses, mills and barracks, soldiers patrolling the walls of a future castle.</p>
+    <p>Nobody is going to feed you. Gather wood, berries and stone, hunt deer and boar, mine gold
+    ore in the far hills — and when the town's buildings open, <b>apply for a job</b>: lumberjack,
+    farmer, miner, builder, guard, knight, or entertainer. Meet your daily quota and get paid gold
+    at dusk. Gold buys food at the market, so you can retire from foraging.</p>
+    <p>Beware wolves at night — and watch the minimap: foreign banners camp far beyond the hills.
+    Their scouts will find your town eventually, and their envoys do not take refusal kindly.</p>
+    <div class="keys">
+      <b>WASD</b> — move &nbsp;·&nbsp; <b>Mouse</b> — look (click world to capture, Esc to free)<br>
+      <b>LMB / Space</b> — attack where you face &nbsp;·&nbsp; <b>E</b> — interact / gather / apply<br>
+      <b>F</b> — eat food &nbsp;·&nbsp; <b>B</b> — build your house (30 wood), sleep in it at night<br>
+      <b>Wheel</b> — zoom
+    </div><br>
+    <button id="startbtn">Begin Day 1</button>
+    <button id="continuebtn" style="display:none;">Continue</button>
+  </div>
+</div>
+
+<div id="shop" class="modal">
+  <div class="box panel">
+    <h2>🏪 Market</h2>
+    <div class="shoprow"><span>Buy 1 food — 6🪙</span><button data-act="buyfood">Buy</button></div>
+    <div class="shoprow"><span>Buy 1 wood — 5🪙</span><button data-act="buywood">Buy</button></div>
+    <div class="shoprow"><span>Sell 1 food — 3🪙</span><button data-act="sellfood">Sell</button></div>
+    <div class="shoprow"><span>Sell 1 wood — 2🪙</span><button data-act="sellwood">Sell</button></div>
+    <div class="shoprow"><span>Sell 1 stone — 2🪙</span><button data-act="sellstone">Sell</button></div>
+    <div class="shoprow"><span>Steel sword (2× damage) — 50🪙</span><button data-act="sword">Buy</button></div>
+    <br><button data-act="close">Leave</button>
+  </div>
+</div>
+
+<div id="touchui">
+  <div id="joyzone"></div>
+  <div id="joybase"></div><div id="joyknob"></div>
+  <button class="tbtn" id="tbattack">⚔</button>
+  <button class="tbtn" id="tbinteract">✋</button>
+  <button class="tbtn" id="tbeat">🍖</button>
+  <button class="tbtn" id="tbbuild">🔨</button>
+</div>
+<button id="burger">☰</button>
+<div id="rotate"><div>🔄<br>Please rotate your device<br><small>this realm is best ruled in landscape</small></div></div>
+
+<div id="pause" class="modal" style="display:none;">
+  <div class="box panel">
+    <h2>⏸ Paused</h2>
+    <p id="pauseinfo"></p>
+    <button id="resumebtn">Resume</button>
+    <button id="savebtn">Save</button>
+    <button id="loadbtn">Load last save</button>
+  </div>
+</div>
+
+<div id="build" class="modal" style="display:none;">
+  <div class="box panel">
+    <h2>🔨 Build</h2>
+    <div id="buildsupplies" style="font-size:14px;color:#bca97c;margin-bottom:8px;"></div>
+    <div id="buildlist" style="text-align:left;"></div>
+    <br><button id="buildclose">Close</button>
+  </div>
+</div>
+
+<div id="diplo" class="modal" style="display:none;">
+  <div class="box panel">
+    <h2 id="diplotitle">Envoy</h2>
+    <p id="diplotext"></p>
+    <button id="diploaccept">Accept</button>
+    <button id="diplodecline">Decline</button>
+  </div>
+</div>
+
+<div id="death" class="modal">
+  <div class="box panel">
+    <h1>You have perished</h1>
+    <p id="deathmsg"></p>
+    <button onclick="location.reload()">Live again</button>
+  </div>
+</div>
+
+<script src="three.min.js"></script>
+<script src="game.js"></script>
+</body>
+</html>
