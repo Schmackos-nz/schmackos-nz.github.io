@@ -1,1 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Duskspire</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
 
+<!-- Top bar (hidden on title/class screens) -->
+<div id="topbar" class="hidden">
+  <span id="tb-hp" class="tb-item">❤ 80/80</span>
+  <span id="tb-gold" class="tb-item">◉ 99</span>
+  <span id="tb-floor" class="tb-item">Floor 0</span>
+  <span id="tb-deck" class="tb-item tb-btn">Deck (10)</span>
+  <span id="tb-relics" class="tb-item"></span>
+</div>
+
+<!-- Title -->
+<div id="scr-title" class="screen">
+  <h1 class="game-title">DUSKSPIRE</h1>
+  <p class="subtitle">A deckbuilding roguelike</p>
+  <canvas id="title-art"></canvas>
+  <button id="btn-new-run" class="big-btn">CLIMB THE SPIRE</button>
+  <p class="hint">Build a deck. Slay what waits above. Reach the top.</p>
+</div>
+
+<!-- Class select -->
+<div id="scr-class" class="screen hidden">
+  <h2>Choose your champion</h2>
+  <div id="class-row"></div>
+</div>
+
+<!-- Map -->
+<div id="scr-map" class="screen hidden">
+  <h2 class="map-title">The Ascent</h2>
+  <div id="map-scroll">
+    <div id="map-wrap">
+      <canvas id="map-canvas"></canvas>
+      <div id="map-nodes"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Combat -->
+<div id="scr-combat" class="screen hidden">
+  <div id="combat-field">
+    <div id="player-pane">
+      <div id="player-status" class="status-row"></div>
+      <div id="player-sprite"></div>
+      <div class="hp-wrap">
+        <div id="player-block" class="block-chip hidden">0</div>
+        <div class="hp-bar"><div id="player-hp-fill" class="hp-fill"></div><span id="player-hp-text"></span></div>
+      </div>
+    </div>
+    <div id="enemies-row"></div>
+  </div>
+  <div id="combat-bottom">
+    <div id="energy-orb"><span id="energy-text">3/3</span></div>
+    <div id="pile-draw" class="pile tb-btn">Draw<br><b>0</b></div>
+    <div id="hand"></div>
+    <div id="pile-discard" class="pile tb-btn">Discard<br><b>0</b></div>
+    <button id="btn-end-turn">END TURN</button>
+  </div>
+</div>
+
+<!-- Reward -->
+<div id="scr-reward" class="screen hidden">
+  <h2>Victory!</h2>
+  <p id="reward-gold"></p>
+  <div id="reward-relic" class="hidden"></div>
+  <p>Choose a card to add to your deck:</p>
+  <div id="reward-cards" class="card-row"></div>
+  <button id="btn-skip-reward" class="big-btn small">Skip card</button>
+</div>
+
+<!-- Rest -->
+<div id="scr-rest" class="screen hidden">
+  <h2>Campfire</h2>
+  <canvas id="rest-art"></canvas>
+  <p>The fire crackles. The spire waits.</p>
+  <div class="btn-row">
+    <button id="btn-rest-heal" class="big-btn small">Rest (heal 30%)</button>
+    <button id="btn-rest-upgrade" class="big-btn small">Smith (upgrade a card)</button>
+  </div>
+</div>
+
+<!-- Shop -->
+<div id="scr-shop" class="screen hidden">
+  <h2>The Peddler</h2>
+  <p>Cards</p>
+  <div id="shop-cards" class="card-row"></div>
+  <p>Relics</p>
+  <div id="shop-relics" class="card-row"></div>
+  <div class="btn-row">
+    <button id="btn-shop-remove" class="big-btn small">Remove a card (75 ◉)</button>
+    <button id="btn-leave-shop" class="big-btn small">Leave</button>
+  </div>
+</div>
+
+<!-- Treasure -->
+<div id="scr-treasure" class="screen hidden">
+  <h2>Treasure!</h2>
+  <canvas id="treasure-art"></canvas>
+  <div id="treasure-relic"></div>
+  <button id="btn-take-treasure" class="big-btn small">Take it</button>
+</div>
+
+<!-- Game over -->
+<div id="scr-over" class="screen hidden">
+  <h2 class="death-title">YOU DIED</h2>
+  <p id="over-stats"></p>
+  <button id="btn-over-restart" class="big-btn">Try again</button>
+</div>
+
+<!-- Victory -->
+<div id="scr-win" class="screen hidden">
+  <h2 class="win-title">THE SPIRE FALLS SILENT</h2>
+  <p id="win-stats"></p>
+  <button id="btn-win-restart" class="big-btn">Climb again</button>
+</div>
+
+<!-- Generic overlay (deck view / card pick) -->
+<div id="overlay" class="hidden">
+  <div id="overlay-box">
+    <h2 id="overlay-title">Deck</h2>
+    <div id="overlay-cards" class="card-row wrap"></div>
+    <button id="overlay-close" class="big-btn small">Close</button>
+  </div>
+</div>
+
+<script src="js/sprites.js"></script>
+<script src="js/cards.js"></script>
+<script src="js/enemies.js"></script>
+<script src="js/relics.js"></script>
+<script src="js/map.js"></script>
+<script src="js/combat.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
