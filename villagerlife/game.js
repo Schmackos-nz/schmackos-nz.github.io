@@ -987,6 +987,7 @@ let camPitch = .62;
 const canvasEl = renderer.domElement;
 function pointerLocked(){ return document.pointerLockElement === canvasEl; }
 canvasEl.addEventListener('click', ()=>{
+  if (typeof IS_MOBILE !== 'undefined' && IS_MOBILE) return; // touch devices use drag-look, no pointer lock
   if (game.started && !game.over && !game.shopOpen && !game.diploOpen && !game.buildMenuOpen && !game.paused && !pointerLocked())
     canvasEl.requestPointerLock();
 });
@@ -1377,6 +1378,7 @@ function updatePlayer(dt){
   let mx = 0, mz = 0;
   if (keys['KeyW']) mz -= 1; if (keys['KeyS']) mz += 1;
   if (keys['KeyA']) mx -= 1; if (keys['KeyD']) mx += 1;
+  if (joy.active && (joy.x || joy.y)){ mx += joy.x; mz += joy.y; }
   if (keys['KeyZ']) camYaw += dt*2; if (keys['KeyC']) camYaw -= dt*2;
   const moving = mx||mz;
   if (moving){
@@ -1519,9 +1521,10 @@ function updateHud(){
   document.querySelector('#hungerbar > div').style.width = player.hunger+'%';
   const pr = document.getElementById('prompt');
   currentInteract = (!game.over && !game.shopOpen) ? computeInteract() : null;
+  if (IS_MOBILE) document.getElementById('tbinteract').classList.toggle('avail', !!currentInteract);
   if (currentInteract && !player.action){
     pr.style.display = 'block';
-    pr.innerHTML = `<b>[E]</b> ${currentInteract.label}`;
+    pr.innerHTML = (IS_MOBILE ? '✋ ' : '<b>[E]</b> ') + currentInteract.label;
   } else if (player.action){
     pr.style.display = 'block';
     const labels = { chop:'Chopping… (move to stop)', pick:'Gathering… (move to stop)',
@@ -1690,6 +1693,92 @@ document.getElementById('loadbtn').addEventListener('click', ()=>{
   location.reload();
 });
 
+// ---------------------------------------------------------------- mobile / touch controls
+const IS_MOBILE = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window
+                  || location.search.includes('mobile');
+const joy = { active:false, id:null, bx:0, by:0, x:0, y:0 };
+function requestLandscape(){
+  if (!IS_MOBILE) return;
+  const el = document.documentElement;
+  const fs = el.requestFullscreen || el.webkitRequestFullscreen;
+  if (fs) Promise.resolve(fs.call(el)).then(()=>{
+    if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(()=>{});
+  }).catch(()=>{});
+}
+if (IS_MOBILE){
+  document.body.classList.add('mobile');
+  const zone = document.getElementById('joyzone');
+  const base = document.getElementById('joybase'), knob = document.getElementById('joyknob');
+  const JR = 50; // joystick radius in px
+  function placeKnob(x,y){ knob.style.left = x+'px'; knob.style.top = y+'px'; }
+  zone.addEventListener('touchstart', e=>{
+    e.preventDefault();
+    if (joy.active) return;
+    const t = e.changedTouches[0];
+    joy.active = true; joy.id = t.identifier;
+    joy.bx = t.clientX; joy.by = t.clientY; joy.x = 0; joy.y = 0;
+    base.style.display = knob.style.display = 'block';
+    base.style.left = joy.bx+'px'; base.style.top = joy.by+'px';
+    placeKnob(joy.bx, joy.by);
+  }, { passive:false });
+  zone.addEventListener('touchmove', e=>{
+    e.preventDefault();
+    for (const t of e.changedTouches){
+      if (t.identifier !== joy.id) continue;
+      let dx = t.clientX-joy.bx, dy = t.clientY-joy.by;
+      const d = Math.hypot(dx,dy);
+      if (d > JR){ dx = dx/d*JR; dy = dy/d*JR; }
+      joy.x = dx/JR; joy.y = dy/JR; // y: down=+1, so up = forward (negative, like W)
+      placeKnob(joy.bx+dx, joy.by+dy);
+    }
+  }, { passive:false });
+  const joyEnd = e=>{
+    for (const t of e.changedTouches){
+      if (t.identifier !== joy.id) continue;
+      joy.active = false; joy.id = null; joy.x = 0; joy.y = 0;
+      base.style.display = knob.style.display = 'none';
+    }
+  };
+  zone.addEventListener('touchend', joyEnd);
+  zone.addEventListener('touchcancel', joyEnd);
+
+  // camera look: drag anywhere on the world that isn't joystick or a button
+  let lookId = null, lx = 0, ly = 0;
+  canvasEl.addEventListener('touchstart', e=>{
+    e.preventDefault();
+    if (lookId !== null) return;
+    const t = e.changedTouches[0];
+    lookId = t.identifier; lx = t.clientX; ly = t.clientY;
+  }, { passive:false });
+  canvasEl.addEventListener('touchmove', e=>{
+    e.preventDefault();
+    for (const t of e.changedTouches){
+      if (t.identifier !== lookId) continue;
+      camYaw -= (t.clientX-lx)*.006;
+      camPitch = clamp(camPitch + (t.clientY-ly)*.004, .18, 1.15);
+      lx = t.clientX; ly = t.clientY;
+    }
+  }, { passive:false });
+  const lookEnd = e=>{ for (const t of e.changedTouches) if (t.identifier === lookId) lookId = null; };
+  canvasEl.addEventListener('touchend', lookEnd);
+  canvasEl.addEventListener('touchcancel', lookEnd);
+
+  // action buttons
+  const tb = id=>document.getElementById(id);
+  tb('tbattack').addEventListener('touchstart', e=>{ e.preventDefault(); keys['Space'] = true; tryAttack(); }, { passive:false });
+  tb('tbattack').addEventListener('touchend', e=>{ e.preventDefault(); keys['Space'] = false; }, { passive:false });
+  tb('tbinteract').addEventListener('touchstart', e=>{ e.preventDefault();
+    if (game.shopOpen) closeShop(); else doInteract(); }, { passive:false });
+  tb('tbeat').addEventListener('touchstart', e=>{ e.preventDefault(); eatFood(); }, { passive:false });
+  tb('tbbuild').addEventListener('touchstart', e=>{ e.preventDefault();
+    if (game.buildMenuOpen) closeBuildMenu();
+    else if (placement.active) cancelPlacement();
+    else openBuildMenu(); }, { passive:false });
+}
+document.getElementById('burger').addEventListener('click', ()=>{
+  if (game.paused) closePause(); else openPause();
+});
+
 // ---------------------------------------------------------------- main loop
 let last = performance.now();
 function loop(now){
@@ -1717,6 +1806,7 @@ requestAnimationFrame(loop);
 document.getElementById('startbtn').addEventListener('click', ()=>{
   document.getElementById('intro').style.display = 'none';
   game.started = true;
+  requestLandscape();
   if (!AC) try { AC = new (window.AudioContext||window.webkitAudioContext)(); } catch(e){}
   addMsg('Gather food before you go hungry. The town is already growing…', '#ffd97a');
 });
@@ -1744,6 +1834,7 @@ document.getElementById('startbtn').addEventListener('click', ()=>{
         catch(e){ console.error('Load failed:', e); addMsg('Load failed — starting fresh.', '#e0908a'); }
         document.getElementById('intro').style.display = 'none';
         game.started = true;
+        requestLandscape();
         if (!AC) try { AC = new (window.AudioContext||window.webkitAudioContext)(); } catch(e){}
         addMsg(`Welcome back — Day ${game.day}.`, '#8ad9ff');
       });

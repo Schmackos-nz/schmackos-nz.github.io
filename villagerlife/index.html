@@ -3,10 +3,11 @@
 <head>
 <meta charset="utf-8">
 <title>A Villager's Life</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
-  html,body { width:100%; height:100%; overflow:hidden; background:#000; font-family:Georgia,'Times New Roman',serif; }
+  html,body { width:100%; height:100%; overflow:hidden; background:#000; font-family:Georgia,'Times New Roman',serif;
+              position:fixed; inset:0; touch-action:none; overscroll-behavior:none; -webkit-user-select:none; user-select:none; }
   canvas { display:block; }
   .panel { background:rgba(20,16,10,.78); border:1px solid #8a6d3b; border-radius:8px; color:#e8d9b0; }
 
@@ -39,8 +40,48 @@
 
   #minimap { position:absolute; bottom:48px; right:12px; width:180px; height:180px; border:1px solid #8a6d3b; border-radius:8px; background:#3e5d33; }
 
+  /* ---------- mobile / touch ---------- */
+  #touchui { display:none; }
+  .tbtn { position:fixed; border-radius:50%; background:rgba(20,16,10,.55); border:2px solid #8a6d3b; color:#ffe9b0;
+          align-items:center; justify-content:center; pointer-events:auto; z-index:5; font-family:inherit; display:flex; }
+  #tbattack   { width:74px; height:74px; right:20px;  bottom:26px;  font-size:30px; }
+  #tbinteract { width:60px; height:60px; right:108px; bottom:44px;  font-size:24px; }
+  #tbinteract.avail { border-color:#ffd97a; background:rgba(122,91,42,.8); }
+  #tbeat      { width:52px; height:52px; right:34px;  bottom:118px; font-size:22px; }
+  #tbbuild    { width:52px; height:52px; right:122px; bottom:124px; font-size:22px; }
+  #burger { position:fixed; width:46px; height:46px; top:10px; right:10px; border-radius:10px; font-size:22px;
+            background:rgba(20,16,10,.7); border:1px solid #8a6d3b; color:#ffe9b0; z-index:6; display:none;
+            align-items:center; justify-content:center; pointer-events:auto; }
+  #joyzone { position:fixed; left:0; bottom:0; width:45%; height:60%; pointer-events:auto; z-index:4; }
+  #joybase { position:fixed; width:110px; height:110px; border-radius:50%; border:2px solid rgba(232,217,176,.5);
+             background:rgba(20,16,10,.25); display:none; z-index:5; pointer-events:none; transform:translate(-50%,-50%); }
+  #joyknob { position:fixed; width:48px; height:48px; border-radius:50%; background:rgba(232,217,176,.6);
+             display:none; z-index:5; pointer-events:none; transform:translate(-50%,-50%); }
+  #rotate { position:fixed; inset:0; background:#14100a; color:#ffd97a; z-index:50; display:none;
+            align-items:center; justify-content:center; font-size:22px; text-align:center; padding:20px; }
+  body.mobile #touchui { display:block; pointer-events:none; }
+  body.mobile #burger { display:flex; }
+  body.mobile #help { display:none; }
+  body.mobile #clock { right:64px; }
+  body.mobile #minimap { left:12px; right:auto; top:170px; bottom:auto; width:130px; height:130px; }
+  body.mobile #bars { width:150px; }
+  body.mobile #log { width:240px; font-size:12px; }
+  body.mobile #res { font-size:14px; padding:6px 10px; gap:10px; }
+  body.mobile #jobpanel { width:200px; font-size:12.5px; }
+  @media (orientation: portrait){ body.mobile #rotate { display:flex; } }
+
   .modal { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,.55); z-index:10; }
-  .modal .box { max-width:560px; padding:28px 34px; text-align:center; pointer-events:auto; }
+  .modal .box { max-width:560px; max-height:92vh; max-height:92dvh; overflow-y:auto; -webkit-overflow-scrolling:touch;
+                touch-action:pan-y; padding:28px 34px; text-align:center; pointer-events:auto; }
+  .mobileonly { display:none; }
+  body.mobile .mobileonly { display:block; }
+  body.mobile .desktoponly { display:none; }
+  body.mobile .modal .box { max-width:86vw; max-height:88vh; max-height:88dvh; padding:14px 18px; }
+  body.mobile .modal h1 { font-size:21px; margin-bottom:6px; }
+  body.mobile .modal h2 { font-size:18px; }
+  body.mobile .modal p { font-size:12.5px; line-height:1.45; margin-bottom:6px; }
+  body.mobile .modal .keys { font-size:12px; line-height:1.55; margin-bottom:8px; }
+  body.mobile .modal button { font-size:14px; padding:7px 18px; }
   .modal h1 { color:#ffd97a; font-size:30px; margin-bottom:10px; }
   .modal h2 { color:#ffd97a; font-size:22px; margin-bottom:10px; }
   .modal p { font-size:15px; line-height:1.55; margin-bottom:10px; }
@@ -90,11 +131,17 @@
     at dusk. Gold buys food at the market, so you can retire from foraging.</p>
     <p>Beware wolves at night — and watch the minimap: foreign banners camp far beyond the hills.
     Their scouts will find your town eventually, and their envoys do not take refusal kindly.</p>
-    <div class="keys">
+    <div class="keys desktoponly">
       <b>WASD</b> — move &nbsp;·&nbsp; <b>Mouse</b> — look (click world to capture, Esc to free)<br>
       <b>LMB / Space</b> — attack where you face &nbsp;·&nbsp; <b>E</b> — interact / gather / apply<br>
       <b>F</b> — eat food &nbsp;·&nbsp; <b>B</b> — build your house (30 wood), sleep in it at night<br>
-      <b>Wheel</b> — zoom
+      <b>Wheel</b> — zoom &nbsp;·&nbsp; <b>P</b> — pause &amp; save
+    </div>
+    <div class="keys mobileonly">
+      <b>Left thumb</b> — joystick to move &nbsp;·&nbsp; <b>drag screen</b> — look around<br>
+      <b>⚔</b> — attack &nbsp;·&nbsp; <b>✋</b> — interact / gather / apply (glows when ready)<br>
+      <b>🍖</b> — eat &nbsp;·&nbsp; <b>🔨</b> — build (your house costs 30 wood)<br>
+      <b>☰</b> — pause &amp; save
     </div><br>
     <button id="startbtn">Begin Day 1</button>
     <button id="continuebtn" style="display:none;">Continue</button>
@@ -113,6 +160,17 @@
     <br><button data-act="close">Leave</button>
   </div>
 </div>
+
+<div id="touchui">
+  <div id="joyzone"></div>
+  <div id="joybase"></div><div id="joyknob"></div>
+  <button class="tbtn" id="tbattack">⚔</button>
+  <button class="tbtn" id="tbinteract">✋</button>
+  <button class="tbtn" id="tbeat">🍖</button>
+  <button class="tbtn" id="tbbuild">🔨</button>
+</div>
+<button id="burger">☰</button>
+<div id="rotate"><div>🔄<br>Please rotate your device<br><small>this realm is best ruled in landscape</small></div></div>
 
 <div id="pause" class="modal" style="display:none;">
   <div class="box panel">
