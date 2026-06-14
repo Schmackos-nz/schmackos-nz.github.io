@@ -175,7 +175,7 @@ function effColor(ent){
 //  LOBBY
 // ============================================================
 const Lobby = {
-  hunter:'vanguard', squadSize:1, partyCode:null, handle:null, netStatus:'',
+  hunter:'vanguard', squadSize:1, partyCode:null, handle:null, netStatus:'', difficulty:'normal',
   init(){
     const list = document.getElementById('hunterList');
     HUNTER_IDS.forEach(id => {
@@ -189,6 +189,8 @@ const Lobby = {
     });
     document.querySelectorAll('.size-btn').forEach(b =>
       b.onclick = () => { Sfx.click(); this.squadSize = +b.dataset.size; this.refresh(); });
+    document.querySelectorAll('.diff-btn').forEach(b =>
+      b.onclick = () => { Sfx.click(); this.difficulty = b.dataset.diff; this.refresh(); });
     document.getElementById('btnCreateParty').onclick = () => { Sfx.click(); this.partyCode = this.makeCode(); this.joinedViaLink=false; this.connectAsHost(); this.refresh(); };
     document.getElementById('btnCopyCode').onclick = () => {
       Sfx.click();
@@ -287,6 +289,12 @@ const Lobby = {
     document.getElementById('hunterDesc').textContent = HUNTERS[this.hunter].desc;
     this.renderGlossary();
     document.querySelectorAll('.size-btn').forEach(b=>b.classList.toggle('active', +b.dataset.size===this.squadSize));
+    document.querySelectorAll('.diff-btn').forEach(b=>b.classList.toggle('active', b.dataset.diff===this.difficulty));
+    document.getElementById('diffHint').textContent = {
+      easy:'Easy — enemies aim poorly and rarely upgrade gear.',
+      normal:'Normal — balanced enemies.',
+      hard:'Hard — enemies aim sharper and constantly grab loot.'
+    }[this.difficulty];
     document.getElementById('partyCode').textContent = this.partyCode || '——————';
     const link=document.getElementById('inviteLink'), hint=document.getElementById('partyHint');
     if (this.partyCode){
@@ -551,7 +559,7 @@ class Hunter {
     else if (this.dots.length<8) this.dots.push({ dps, t:dur, src });
   }
   takeDamage(amt, src){
-    if (!this.alive) return;
+    if (!this.alive || (G && G.phase!=='live')) return;   // invulnerable until the drop completes
     amt *= (1 - this.dr);
     const dealt = amt;
     if (this.shield>0){ const a=Math.min(this.shield,amt); this.shield-=a; amt-=a; }
@@ -605,6 +613,7 @@ function startMatch(){
   G = {
     hunters:[], projectiles:[], aoes:[], items:[], pings:[], particles:[], motes:[], swings:[],
     cam:{x:0,y:0}, t:0, over:false, placeWhenDead:0, flash:0, bolt:null, lightT:rand(5,12),
+    diff: Lobby.difficulty, phase:'choose', deployT:20, landX:null, landY:null,
     zone:{ cx:WORLD/2, cy:WORLD/2, r:WORLD*0.82, target:WORLD*0.82, nextShrink:40, stage:0 }
   };
 
@@ -623,6 +632,7 @@ function startMatch(){
     }
   }
   G.player=G.hunters.find(h=>h.isPlayer); G.camFollow=G.player;
+  G.landX=G.player.x; G.landY=G.player.y;     // default landing = squad spawn
   G.cam.x=G.player.x-canvas.width/2; G.cam.y=G.player.y-canvas.height/2;
   netHostAssign();
 
@@ -644,6 +654,30 @@ function spawnItem(x,y,id,lvl){
   G.items.push({ id, lvl:lvl||1, x, y, bob:rand(0,TAU) });
 }
 function dropItem(id,lvl,x,y){ G.items.push({ id, lvl, x:clamp(x,20,WORLD-20), y:clamp(y,20,WORLD-20), bob:rand(0,TAU) }); }
+
+// ---- deploy / landing ----
+function dropSquads(){
+  // your squad lands at the chosen spot; enemy squads keep their own spawns
+  G.hunters.filter(h=>h.team===G.player.team).forEach(h=>{
+    h.x=clamp(G.landX+rand(-90,90),60,WORLD-60); h.y=clamp(G.landY+rand(-90,90),60,WORLD-60);
+  });
+  spawnBurst(G.landX,G.landY,'#34e3ff',30);
+}
+function updateDeployCamera(dt){
+  const tx=(G.landX!=null?G.landX:G.player.x)-canvas.width/2;
+  const ty=(G.landY!=null?G.landY:G.player.y)-canvas.height/2;
+  G.cam.x=lerp(G.cam.x,tx,0.15); G.cam.y=lerp(G.cam.y,ty,0.15);
+}
+function chooseLanding(ev){
+  if (!G || G.phase!=='choose') return;
+  ev.preventDefault();
+  const r=mm.getBoundingClientRect();
+  const px=(ev.touches?ev.touches[0].clientX:ev.clientX)-r.left;
+  const py=(ev.touches?ev.touches[0].clientY:ev.clientY)-r.top;
+  G.landX=clamp(px/r.width*WORLD,0,WORLD); G.landY=clamp(py/r.height*WORLD,0,WORLD);
+  if (NETROLE==='client') Net.toHost({t:'land', x:G.landX, y:G.landY});
+  Sfx.ping(0.6);
+}
 
 // ============================================================
 //  ABILITIES
@@ -699,7 +733,7 @@ function cast(ent, slot){
 function fireProj(ent,def,ang,dmg){
   G.projectiles.push({ x:ent.x+Math.cos(ang)*ent.radius, y:ent.y+Math.sin(ang)*ent.radius,
     vx:Math.cos(ang)*def.speed, vy:Math.sin(ang)*def.speed, dmg, team:ent.team, owner:ent,
-    radius:def.radius, life:def.range/def.speed, pierce:!!def.pierce, color:effColor(ent), hits:new Set(), dot:def.dot||null });
+    radius:def.radius*1.45, life:def.range/def.speed, pierce:!!def.pierce, color:effColor(ent), hits:new Set(), dot:def.dot||null });
 }
 function coneHit(ent,def,dmg){
   G.hunters.forEach(o=>{ if(o.team===ent.team||!o.alive) return;
@@ -711,17 +745,37 @@ function addAoe(ent,x,y,r,dmg,delay,dot){ G.aoes.push({x,y,r,dmg,team:ent.team,o
 // ============================================================
 //  CONTROL
 // ============================================================
-function controlPlayer(p, dt){
+// ----- input source (keyboard/mouse or touch) -----
+const Mobile = {
+  on:false,
+  move:{id:null, ox:0, oy:0, nx:0, ny:0, active:false, cx:0, cy:0},
+  aim:{id:null, ox:0, oy:0, ang:0, active:false, firing:false, cx:0, cy:0},
+  lastAim:0
+};
+function readMoveAim(p){
+  if (Mobile.on){
+    if (Mobile.aim.active) Mobile.lastAim=Mobile.aim.ang;
+    const aim=Mobile.lastAim;
+    if (G && G.cam){ Input.mx=(p.x+Math.cos(aim)*420)-G.cam.x; Input.my=(p.y+Math.sin(aim)*420)-G.cam.y; }
+    return { mx:Mobile.move.nx, my:Mobile.move.ny, aim, fire:Mobile.aim.firing };
+  }
   let mx=0,my=0;
   if (Input.keys.has('w')) my--; if (Input.keys.has('s')) my++;
   if (Input.keys.has('a')) mx--; if (Input.keys.has('d')) mx++;
-  const ml=Math.hypot(mx,my)||1; p.moveX=mx/ml; p.moveY=my/ml;
-  const w=worldMouse(); p.aim=angTo(p.x,p.y,w.x,w.y);
+  const ml=Math.hypot(mx,my)||1;
+  const w=worldMouse();
+  return { mx:mx/ml, my:my/ml, aim:angTo(p.x,p.y,w.x,w.y), fire:Input.mdown };
+}
+
+function controlPlayer(p, dt){
+  const r=readMoveAim(p);
+  p.moveX=r.mx; p.moveY=r.my; p.aim=r.aim;
+  const w=worldMouse();
 
   p.reviving=null;
   if (p.downed) return;
 
-  if (Input.mdown) cast(p,'basic');
+  if (r.fire) cast(p,'basic');
   if (Input.keys.has('q')) cast(p,'q');
   if (Input.keys.has('e')) cast(p,'e');
   if (Input.keys.has('r')) cast(p,'r');
@@ -736,6 +790,12 @@ function controlPlayer(p, dt){
       if (ally){ ally.reviveProg+=dt; p.reviving=ally; if(ally.reviveProg>=2.5) ally.reviveTo(); } }
   }
 }
+
+// difficulty helpers (apply to enemy squads; your allied AI stays Normal)
+function isEnemyAI(e){ return e.team!==G.player.team; }
+function aimErr(e){ if(!isEnemyAI(e)) return 0.05; return G.diff==='easy'?0.24 : G.diff==='hard'?0.015 : 0.05; }
+function lootRange(e){ if(!isEnemyAI(e)) return 1100; return G.diff==='easy'?500 : G.diff==='hard'?2000 : 1100; }
+function gearCap(e){ return (isEnemyAI(e) && G.diff==='easy') ? 1 : 3; }   // easy enemies don't upgrade
 
 function controlAI(e, dt){
   e.moveX=0; e.moveY=0; e.reviving=null;
@@ -765,7 +825,7 @@ function controlAI(e, dt){
   else if (foe && fd<820){
     fight=true; e.aiTarget=foe;
     const ranged=abilityOf(e,'basic').kind==='proj'; const ideal=ranged?340:64;
-    const a=angTo(e.x,e.y,foe.x,foe.y); e.aim=a+rand(-0.05,0.05);
+    const a=angTo(e.x,e.y,foe.x,foe.y); const err=aimErr(e); e.aim=a+rand(-err,err);
     if (fd>ideal+40){ gx=foe.x; gy=foe.y; }
     else if (fd<ideal-40){ gx=e.x-(foe.x-e.x); gy=e.y-(foe.y-e.y); }
     else { e.moveX=Math.cos(a+Math.PI/2)*((e.id%2)?1:-1); e.moveY=Math.sin(a+Math.PI/2)*((e.id%2)?1:-1); }
@@ -803,10 +863,11 @@ function nearestGroundItem(e,range){ let best=null,bd=range*range;
   for(const it of G.items){ const d=dist2(e.x,e.y,it.x,it.y); if(d<bd){bd=d;best=it;} } return best; }
 function nearestNeededItem(e){ let best=null,bd=1e18;
   for(const it of G.items){ if(!aiNeedsItem(e,it)) continue; const d=dist2(e.x,e.y,it.x,it.y); if(d<bd){bd=d;best=it;} }
-  return Math.sqrt(bd)<1100?best:null; }
+  return Math.sqrt(bd)<lootRange(e)?best:null; }
 function aiNeedsItem(e,it){ const s=e.slots.find(x=>x.id===it.id);
-  if (!s) return true;            // new item — always worth grabbing
-  return s.lvl<3 || it.lvl>s.lvl; // upgrade if not maxed
+  const cap=gearCap(e);
+  if (!s) return cap>=1;                    // new item — grab it (easy enemies still grab one)
+  return s.lvl<cap || (it.lvl>s.lvl && s.lvl<cap);
 }
 function equipItem(ent,it){
   const res=ent.equip(it.id, it.lvl);
@@ -836,12 +897,29 @@ function spawnSwing(ent,def){ if(!G.swings) G.swings=[];
 function update(dt){
   const z=G.zone; G.t+=dt;
 
-  // zone shrink
-  z.nextShrink-=dt;
-  if (z.nextShrink<=0 && z.target>WORLD*0.05){
-    z.stage++; z.target=Math.max(WORLD*0.05, z.target*0.7);
-    z.nextShrink=Math.max(20, 40-z.stage*2.5);
-    addFeed('⚠ The storm is closing in'); Sfx.zone();
+  // --- deploy / landing phase ---
+  if (G.phase!=='live'){
+    G.deployT-=dt;
+    if (G.phase==='choose' && G.deployT<=5){ G.phase='grace'; dropSquads(); Sfx.zone(); addFeed('Hunters deployed — grace period'); }
+    if (G.deployT<=0){ G.phase='live'; addFeed('⚔ The hunt begins!'); }
+  }
+  if (G.phase==='choose'){
+    // world frozen while everyone picks a landing zone
+    updateDeployCamera(dt);
+    if (NETROLE==='host' && Net.count()>0){ netAccum+=dt; if(netAccum>=1/12){ netAccum=0; for(const id in Net.conns) Net.send(id, encodeSnapshot(id)); } }
+    updateHUD();
+    return;
+  }
+  const live = G.phase==='live';
+
+  // zone shrink (only once live)
+  if (live){
+    z.nextShrink-=dt;
+    if (z.nextShrink<=0 && z.target>WORLD*0.05){
+      z.stage++; z.target=Math.max(WORLD*0.05, z.target*0.7);
+      z.nextShrink=Math.max(20, 40-z.stage*2.5);
+      addFeed('⚠ The storm is closing in'); Sfx.zone();
+    }
   }
   z.r=lerp(z.r,z.target,dt*0.4);
   Sfx.ambientIntensity(clamp(1 - z.r/(WORLD*0.82), 0, 1));
@@ -999,6 +1077,23 @@ function updateHUD(){
   document.querySelectorAll('.ab').forEach(el=>{ const cd=p.cd[el.dataset.slot]||0; const cool=el.querySelector('.cool');
     if(cd>0.05){ cool.classList.remove('hidden'); cool.textContent=cd.toFixed(1); el.classList.remove('ready'); }
     else { cool.classList.add('hidden'); el.classList.add('ready'); } });
+  // mobile ability buttons cooldowns
+  document.querySelectorAll('#mobileButtons .mbtn[data-slot]').forEach(el=>{ const slot=el.dataset.slot; if(!slot) return;
+    const cd=p.cd[slot]||0; const cool=el.querySelector('.cool');
+    if(cd>0.05){ cool.classList.remove('hidden'); cool.textContent=cd.toFixed(1); } else cool.classList.add('hidden'); });
+
+  // deploy / landing banner
+  const db=document.getElementById('deployBanner'), miniSel=document.getElementById('minimap');
+  if (G.phase && G.phase!=='live'){
+    db.classList.remove('hidden');
+    if (G.phase==='choose'){
+      db.innerHTML=`<b>DROP IN ${Math.max(0,Math.ceil(G.deployT-5))}s</b><small>Tap the minimap to choose your squad's landing zone</small>`;
+      miniSel.classList.add('selectable');
+    } else {
+      db.innerHTML=`<b>GRACE — ${Math.max(0,Math.ceil(G.deployT))}s</b><small>Grab gear &amp; position — you're invulnerable until the storm hits</small>`;
+      miniSel.classList.remove('selectable');
+    }
+  } else { db.classList.add('hidden'); miniSel.classList.remove('selectable'); }
 
   // gear bar
   const gb=document.getElementById('gearBar'); let html='';
@@ -1155,6 +1250,15 @@ function draw(){
     ctx.fillStyle=`rgba(180,160,255,${G.flash*0.6})`; ctx.fillRect(0,0,w,h);
   }
 
+  // landing marker (deploy choose phase)
+  if (G.phase==='choose' && G.landX!=null){
+    const sx=G.landX-cam.x, sy=G.landY-cam.y;
+    ctx.strokeStyle='#34e3ff'; ctx.lineWidth=3;
+    ctx.beginPath(); ctx.arc(sx,sy,28+Math.sin(G.t*5)*5,0,TAU); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(sx,sy-40); ctx.lineTo(sx,sy+40); ctx.moveTo(sx-40,sy); ctx.lineTo(sx+40,sy); ctx.globalAlpha=0.5; ctx.stroke(); ctx.globalAlpha=1;
+    ctx.fillStyle='#34e3ff'; ctx.font='bold 14px sans-serif'; ctx.textAlign='center'; ctx.fillText('DROP ZONE',sx,sy-48);
+  }
+
   // dust motes (screen space)
   for (const m of G.motes){ ctx.globalAlpha=m.a; ctx.fillStyle='#cfe2ff';
     ctx.beginPath(); ctx.arc(m.x,m.y,m.r,0,TAU); ctx.fill(); } ctx.globalAlpha=1;
@@ -1163,6 +1267,15 @@ function draw(){
   const vg=ctx.createRadialGradient(w/2,h/2,Math.min(w,h)*0.35, w/2,h/2,Math.max(w,h)*0.75);
   vg.addColorStop(0,'rgba(0,0,0,0)'); vg.addColorStop(1,'rgba(0,0,0,.45)');
   ctx.fillStyle=vg; ctx.fillRect(0,0,w,h);
+
+  // mobile joysticks
+  if (Mobile.on){
+    const drawStick=(s,col)=>{ if(s.id===null) return;
+      ctx.globalAlpha=0.5; ctx.strokeStyle=col; ctx.lineWidth=3;
+      ctx.beginPath(); ctx.arc(s.ox,s.oy,64,0,TAU); ctx.stroke();
+      ctx.fillStyle=col; ctx.beginPath(); ctx.arc(s.cx,s.cy,26,0,TAU); ctx.fill(); ctx.globalAlpha=1; };
+    drawStick(Mobile.move,'#34e3ff'); drawStick(Mobile.aim,'#ff5da2');
+  }
 
   drawMinimap();
 }
@@ -1175,6 +1288,11 @@ function drawMinimap(){
   for (const e of G.hunters){ if(!e.alive) continue; const ally=e.team===G.player.team;
     mmx.fillStyle=e.isPlayer?'#ffd24a':ally?'#46e08a':'#ff5a5a';
     mmx.beginPath(); mmx.arc(e.x*s,e.y*s,e.isPlayer?3:2,0,TAU); mmx.fill(); }
+  // landing marker during deploy
+  if (G.phase==='choose' && G.landX!=null){
+    mmx.strokeStyle='#34e3ff'; mmx.lineWidth=2;
+    mmx.beginPath(); mmx.arc(G.landX*s,G.landY*s,6+Math.sin(G.t*5)*2,0,TAU); mmx.stroke();
+  }
 }
 
 // ============================================================
@@ -1210,6 +1328,8 @@ function netHostData(fromId, msg){
   } else if (msg.t==='in'){
     const h = G && G.hunters && G.hunters.find(x=>x.controlledBy===fromId);
     if (h) h._in=msg;
+  } else if (msg.t==='land'){
+    if (G && G.phase==='choose'){ G.landX=msg.x; G.landY=msg.y; }
   }
 }
 function netHostClose(id){
@@ -1258,7 +1378,8 @@ function encodeSnapshot(forId){
   for (const pg of G.pings) PG.push([pg.x|0,pg.y|0]);
   const me=G.hunters.find(h=>h.controlledBy===forId);
   const you = me ? { cd:me.cd, slots:me.slots, kills:me.kills } : null;
-  return { t:'state', z:[z.cx|0,z.cy|0,z.r|0,z.target|0,z.stage,Math.ceil(z.nextShrink)], H,P,A,I,PG, you };
+  return { t:'state', z:[z.cx|0,z.cy|0,z.r|0,z.target|0,z.stage,Math.ceil(z.nextShrink)], H,P,A,I,PG, you,
+    ph:G.phase, dT:Math.max(0,Math.round(G.deployT*10)/10) };
 }
 
 // ---- client ----
@@ -1287,6 +1408,7 @@ function clientStartMatch(){
   HUNTER_IDS.forEach(id => Sprites[id]=buildSprite(HUNTERS[id]));
   G = { hunters:[], hmap:new Map(), projectiles:[], aoes:[], items:[], pings:[], particles:[], motes:[], swings:[],
     cam:{x:WORLD/2-canvas.width/2,y:WORLD/2-canvas.height/2}, t:0, over:false, names:{}, myHunterId:null, barBuilt:false, clientSwingCd:0,
+    phase:'choose', deployT:20, landX:null, landY:null,
     zone:{cx:WORLD/2,cy:WORLD/2,r:WORLD*0.82,target:WORLD*0.82,stage:0,nextShrink:40} };
   for (let i=0;i<60;i++) G.motes.push({x:rand(0,canvas.width),y:rand(0,canvas.height),vx:rand(-8,8),vy:rand(-14,-3),r:rand(0.6,2),a:rand(0.1,0.4)});
   G.feedEl=document.getElementById('killfeed');
@@ -1296,6 +1418,7 @@ function clientStartMatch(){
 function clientApplySnapshot(snap){
   if (!G) return;
   const z=snap.z; G.zone={cx:z[0],cy:z[1],r:z[2],target:z[3],stage:z[4],nextShrink:z[5]};
+  if (snap.ph) G.phase=snap.ph; if (snap.dT!=null) G.deployT=snap.dT;
   const seen=new Set();
   for (const a of snap.H){
     const id=a[0]; let h=G.hmap.get(id);
@@ -1321,6 +1444,7 @@ function clientApplySnapshot(snap){
   else if (G.barBuilt && G.player && G.player.def.forms && G.player.form!==G._lastForm){ buildAbilityBar(); G._lastForm=G.player.form; }
 }
 function clientSendInput(dt){
+  const r = G.player ? readMoveAim(G.player) : {mx:0,my:0,aim:0,fire:false};
   const w = G.player ? worldMouse() : {x:0,y:0};
   // edge-detected ping (V) and interact (F)
   if (Input.keys.has('v')){ if(!clientVHeld){ clientVHeld=true; clientPing=[w.x|0,w.y|0]; Sfx.ping(1); } } else clientVHeld=false;
@@ -1330,12 +1454,8 @@ function clientSendInput(dt){
     if (down && !clientEdge[k]){ clientEdge[k]=true; (k===' '?Sfx.dash:Sfx.cast)(0.7); } else if(!down) clientEdge[k]=false; });
   clientInAccum+=dt; if (clientInAccum < 1/30) return; clientInAccum=0;
   if (!Net.ready || !G.player) return;
-  let mx=0,my=0;
-  if (Input.keys.has('w')) my--; if (Input.keys.has('s')) my++;
-  if (Input.keys.has('a')) mx--; if (Input.keys.has('d')) mx++;
-  const ml=Math.hypot(mx,my)||1;
-  const msg={ t:'in', mv:[mx/ml,my/ml], aim:angTo(G.player.x,G.player.y,w.x,w.y),
-    fire:Input.mdown?1:0, q:Input.keys.has('q')?1:0, e:Input.keys.has('e')?1:0, r:Input.keys.has('r')?1:0,
+  const msg={ t:'in', mv:[r.mx,r.my], aim:r.aim,
+    fire:r.fire?1:0, q:Input.keys.has('q')?1:0, e:Input.keys.has('e')?1:0, r:Input.keys.has('r')?1:0,
     dash:Input.keys.has(' ')?1:0, fhold:Input.keys.has('f')?1:0 };
   if (clientPing){ msg.ping=clientPing; clientPing=null; }
   if (clientAct){ msg.act=1; clientAct=false; }
@@ -1349,9 +1469,10 @@ function clientTick(dt){
     if (h.tx!==undefined){ h.x=lerp(h.x,h.tx,clamp(dt*16,0,1)); h.y=lerp(h.y,h.ty,clamp(dt*16,0,1)); }
     h.moveX=moving?1:0; h.moveY=0; if(moving) h.walkT+=dt*10;
   }
-  if (G.player){ const w=worldMouse(); G.player.aim=angTo(G.player.x,G.player.y,w.x,w.y); }
-  const cf=G.player||G.camFollow;
-  if (cf){ G.camFollow=cf; G.cam.x=lerp(G.cam.x,cf.x-canvas.width/2,0.12); G.cam.y=lerp(G.cam.y,cf.y-canvas.height/2,0.12); }
+  if (G.player && G.phase!=='choose'){ const w=worldMouse(); G.player.aim=angTo(G.player.x,G.player.y,w.x,w.y); }
+  if (G.phase==='choose'){ updateDeployCamera(dt); }
+  else { const cf=G.player||G.camFollow;
+    if (cf){ G.camFollow=cf; G.cam.x=lerp(G.cam.x,cf.x-canvas.width/2,0.12); G.cam.y=lerp(G.cam.y,cf.y-canvas.height/2,0.12); } }
   for (const m of G.motes){ m.x+=m.vx*dt; m.y+=m.vy*dt;
     if(m.y<-5){m.y=canvas.height+5;m.x=rand(0,canvas.width);} if(m.x<-5)m.x=canvas.width+5; if(m.x>canvas.width+5)m.x=-5; }
   for (let i=G.particles.length-1;i>=0;i--){ const p=G.particles[i]; p.life-=dt;
@@ -1365,4 +1486,67 @@ function clientTick(dt){
   if (G.player) updateHUD();
 }
 
+// ============================================================
+//  MOBILE / TOUCH
+// ============================================================
+function updStick(s,x,y){
+  const dx=x-s.ox, dy=y-s.oy, mag=Math.hypot(dx,dy), R=64, dead=10;
+  if (mag>dead){ const m=Math.min(mag,R); s.nx=dx/mag*(m/R); s.ny=dy/mag*(m/R); s.ang=Math.atan2(dy,dx); s.active=true; }
+  else { s.nx=0; s.ny=0; s.active=false; }
+  s.cx=x; s.cy=y;
+}
+function mobileTouch(e){
+  if (!Mobile.on) return;
+  e.preventDefault();
+  for (const t of e.changedTouches){
+    if (e.type!=='touchstart') continue;
+    const left = t.clientX < innerWidth*0.5;
+    if (left && Mobile.move.id===null){ Mobile.move.id=t.identifier; Mobile.move.ox=t.clientX; Mobile.move.oy=t.clientY; updStick(Mobile.move,t.clientX,t.clientY); }
+    else if (!left && Mobile.aim.id===null){ Mobile.aim.id=t.identifier; Mobile.aim.ox=t.clientX; Mobile.aim.oy=t.clientY; updStick(Mobile.aim,t.clientX,t.clientY); Mobile.aim.firing=Mobile.aim.active; }
+  }
+  for (const t of e.touches){
+    if (t.identifier===Mobile.move.id) updStick(Mobile.move,t.clientX,t.clientY);
+    if (t.identifier===Mobile.aim.id){ updStick(Mobile.aim,t.clientX,t.clientY); Mobile.aim.firing=Mobile.aim.active; }
+  }
+}
+function mobileTouchEnd(e){
+  for (const t of e.changedTouches){
+    if (t.identifier===Mobile.move.id){ Mobile.move.id=null; Mobile.move.nx=0; Mobile.move.ny=0; Mobile.move.active=false; }
+    if (t.identifier===Mobile.aim.id){ Mobile.aim.id=null; Mobile.aim.active=false; Mobile.aim.firing=false; }
+  }
+}
+function buildMobileButtons(){
+  const wrap=document.getElementById('mobileButtons'); wrap.innerHTML='';
+  const defs=[['q','Q'],['e','E'],['r','R'],[' ','⚡'],['v','⚑'],['f','✋']];
+  defs.forEach(([key,label])=>{
+    const b=document.createElement('div'); b.className='mbtn';
+    const slot = key===' '?'dash':((key==='v'||key==='f')?'':key);
+    if (slot) b.dataset.slot=slot;
+    b.innerHTML=`<span class="mlabel">${label}</span><span class="cool hidden"></span>`;
+    const press=ev=>{ ev.preventDefault(); Input.keys.add(key); };
+    const release=ev=>{ ev.preventDefault(); Input.keys.delete(key); };
+    b.addEventListener('touchstart',press,{passive:false});
+    b.addEventListener('touchend',release,{passive:false});
+    b.addEventListener('touchcancel',release,{passive:false});
+    wrap.appendChild(b);
+  });
+}
+function setupMobile(){
+  const coarse = window.matchMedia && matchMedia('(pointer: coarse)').matches;
+  const touch = ('ontouchstart' in window) || navigator.maxTouchPoints>0;
+  Mobile.on = coarse || (touch && Math.min(innerWidth,innerHeight)<820);
+  if (!Mobile.on) return;
+  document.body.classList.add('mobile');
+  document.getElementById('mobileControls').classList.remove('hidden');
+  buildMobileButtons();
+  canvas.addEventListener('touchstart', mobileTouch, {passive:false});
+  canvas.addEventListener('touchmove', mobileTouch, {passive:false});
+  canvas.addEventListener('touchend', mobileTouchEnd, {passive:false});
+  canvas.addEventListener('touchcancel', mobileTouchEnd, {passive:false});
+}
+// minimap landing selection (deploy phase)
+mm.addEventListener('mousedown', chooseLanding);
+mm.addEventListener('touchstart', chooseLanding, {passive:false});
+
+setupMobile();
 Lobby.init();

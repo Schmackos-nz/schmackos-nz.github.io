@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-<title>STORMF4LL — Arena Royale</title>
+<title>STORMF4LL.1 — Arena Royale</title>
 <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
@@ -12,7 +12,7 @@
 <div id="menu" class="screen">
   <div class="bg-grid"></div>
   <div class="menu-inner">
-    <h1 class="title">STORMF<span>4</span>LL</h1>
+    <h1 class="title">STORMF<span>4</span>LL.1</h1>
     <p class="tagline">Drop in. Squad up. Last team standing wins the crown.</p>
 
     <div id="crownBanner" class="crown-banner hidden">
@@ -36,6 +36,14 @@
           <button class="size-btn" data-size="2">Duo</button>
           <button class="size-btn" data-size="3">Trio</button>
         </div>
+
+        <h2 style="margin-top:14px">AI Difficulty</h2>
+        <div class="squad-size">
+          <button class="diff-btn" data-diff="easy">Easy</button>
+          <button class="diff-btn active" data-diff="normal">Normal</button>
+          <button class="diff-btn" data-diff="hard">Hard</button>
+        </div>
+        <p class="hint" id="diffHint" style="margin-top:6px">Normal — balanced enemies.</p>
 
         <div class="party-box">
           <div class="party-row">
@@ -78,6 +86,8 @@
       <div id="zoneTimer" class="zone-timer">Zone closing…</div>
     </div>
 
+    <div id="deployBanner" class="deploy-banner hidden"></div>
+
     <div id="squadPanel" class="squad-panel"></div>
 
     <div id="minimap"><canvas id="minimapCanvas" width="160" height="160"></canvas></div>
@@ -92,6 +102,11 @@
     <div id="interactPrompt" class="interact-prompt hidden"></div>
 
     <div id="downedBanner" class="downed-banner hidden">DOWNED — a teammate can revive you</div>
+  </div>
+
+  <!-- Mobile touch controls -->
+  <div id="mobileControls" class="hidden">
+    <div id="mobileButtons"></div>
   </div>
 
   <!-- End screen -->
