@@ -222,6 +222,7 @@
     </div>
 
     <div class="grp" style="margin-left:auto">
+      <button class="btn" id="autoBeat" title="Upload a song; recreate a simplified beat + melody">🎼 Song → Beat</button>
       <button class="btn green" id="exportWav">⬇ Export WAV</button>
       <button class="btn" id="saveProj">Save</button>
       <button class="btn" id="loadProj">Load</button>
@@ -283,6 +284,7 @@
 </div>
 
 <input type="file" id="fileInst" accept="audio/*" style="display:none">
+<input type="file" id="fileAnalyze" accept="audio/*" style="display:none">
 <input type="file" id="fileProj" accept="application/json,.json" style="display:none">
 
 <script>
@@ -1577,6 +1579,218 @@ async function toggleMicRecord(){
   MIC.recording=true;
   btn.classList.add('recording'); btn.textContent='■ Stop Rec';
   setInfo('Recording from microphone… click Stop to capture');
+}
+
+/* ============================================================
+   AUTO-BEAT  — upload a song -> simplified beat + melody
+   ============================================================ */
+document.getElementById('autoBeat').onclick=()=>{
+  if(proj.tracks.length && !confirm('This replaces your current project with an auto-generated beat from the uploaded song. Continue?')) return;
+  document.getElementById('fileAnalyze').click();
+};
+document.getElementById('fileAnalyze').onchange=async e=>{
+  const file=e.target.files[0]; e.target.value='';
+  if(file) await importSongToBeat(file);
+};
+
+async function importSongToBeat(file){
+  ensureAudio();
+  setInfo('Decoding “'+file.name+'”…');
+  let buffer;
+  try{ const arr=await file.arrayBuffer(); buffer=await A.ctx.decodeAudioData(arr.slice(0)); }
+  catch(err){ setInfo('Could not decode that file: '+err.message); return; }
+  openModal('🎼 Auto-Beat', `<div class="sub" style="max-width:480px">Analyzing “${escapeHtml(file.name)}” — detecting tempo, drums, bass and melody, then splitting it into simplified patterns. This can take a few seconds…</div>`);
+  await new Promise(r=>setTimeout(r,60)); // allow modal to paint
+  try{
+    const res=analyzeSong(buffer);
+    applyAnalysis(res, file.name);
+  }catch(err){ setInfo('Analysis failed: '+err.message); }
+  closeModal();
+}
+
+/* ---- DSP helpers ---- */
+function toMono(buf){
+  const n=buf.length, ch=buf.numberOfChannels, out=new Float32Array(n);
+  for(let c=0;c<ch;c++){ const d=buf.getChannelData(c); for(let i=0;i<n;i++) out[i]+=d[i]; }
+  if(ch>1) for(let i=0;i<n;i++) out[i]/=ch;
+  return out;
+}
+function biquad(x,b0,b1,b2,a1,a2){
+  const y=new Float32Array(x.length);
+  let x1=0,x2=0,y1=0,y2=0;
+  for(let i=0;i<x.length;i++){ const xi=x[i];
+    const yi=b0*xi+b1*x1+b2*x2-a1*y1-a2*y2;
+    x2=x1; x1=xi; y2=y1; y1=yi; y[i]=yi; }
+  return y;
+}
+function lpCoef(sr,f0,Q){const w=2*Math.PI*f0/sr,cs=Math.cos(w),sn=Math.sin(w),al=sn/(2*Q);
+  const a0=1+al; return [((1-cs)/2)/a0,(1-cs)/a0,((1-cs)/2)/a0,(-2*cs)/a0,(1-al)/a0];}
+function hpCoef(sr,f0,Q){const w=2*Math.PI*f0/sr,cs=Math.cos(w),sn=Math.sin(w),al=sn/(2*Q);
+  const a0=1+al; return [((1+cs)/2)/a0,(-(1+cs))/a0,((1+cs)/2)/a0,(-2*cs)/a0,(1-al)/a0];}
+function bpCoef(sr,f0,Q){const w=2*Math.PI*f0/sr,cs=Math.cos(w),sn=Math.sin(w),al=sn/(2*Q);
+  const a0=1+al; return [al/a0,0,(-al)/a0,(-2*cs)/a0,(1-al)/a0];}
+function downsample(x,srIn,srOut){
+  const factor=srIn/srOut, n=Math.floor(x.length/factor), out=new Float32Array(n);
+  for(let i=0;i<n;i++){ const a=Math.floor(i*factor), b=Math.floor((i+1)*factor);
+    let s=0; for(let j=a;j<b;j++) s+=x[j]; out[i]=s/Math.max(1,b-a); }
+  return out;
+}
+function detectBPM(mono,sr){
+  const hop=512, nf=Math.floor(mono.length/hop), env=new Float32Array(nf);
+  for(let i=0;i<nf;i++){ let s=0; const off=i*hop; for(let j=0;j<hop;j++){const v=mono[off+j]||0; s+=v*v;} env[i]=Math.sqrt(s/hop); }
+  const flux=new Float32Array(nf);
+  for(let i=1;i<nf;i++){ const d=env[i]-env[i-1]; flux[i]=d>0?d:0; }
+  const lagMin=Math.max(1,Math.round((60/180)*sr/hop));
+  const lagMax=Math.round((60/70)*sr/hop);
+  let best=0,bestLag=lagMin;
+  for(let lag=lagMin;lag<=lagMax;lag++){ let c=0; for(let i=lag;i<nf;i++) c+=flux[i]*flux[i-lag];
+    if(c>best){best=c;bestLag=lag;} }
+  let bpm=60/(bestLag*hop/sr);
+  while(bpm<70) bpm*=2; while(bpm>180) bpm/=2;
+  return clamp(Math.round(bpm),40,300);
+}
+function stepHits(sig,sr,stepDur,totalSteps,threshFrac){
+  const rms=new Float32Array(totalSteps);
+  for(let s=0;s<totalSteps;s++){ const a=Math.floor(s*stepDur*sr), b=Math.floor((s+1)*stepDur*sr);
+    let e=0; for(let i=a;i<b;i++){const v=sig[i]||0; e+=v*v;} rms[s]=Math.sqrt(e/Math.max(1,b-a)); }
+  let mx=0; for(let s=0;s<totalSteps;s++) mx=Math.max(mx,rms[s]);
+  const hits=new Array(totalSteps).fill(0);
+  if(mx<=0) return hits;
+  const th=mx*threshFrac;
+  for(let s=0;s<totalSteps;s++){ const prev=s>0?rms[s-1]:0;
+    if(rms[s]>th && rms[s]>=prev*0.85) hits[s]=clamp(rms[s]/mx,0.45,1); }
+  return hits;
+}
+function pitchAt(ds,start,len,dsr,fmin,fmax){
+  let energy=0; for(let i=0;i<len;i++){const v=ds[start+i]||0; energy+=v*v;}
+  if(energy<1e-4) return null;
+  const minLag=Math.max(2,Math.floor(dsr/fmax)), maxLag=Math.floor(dsr/fmin);
+  let best=0,bestLag=-1;
+  for(let lag=minLag;lag<=maxLag;lag++){ let c=0; for(let i=0;i+lag<len;i++) c+=ds[start+i]*ds[start+i+lag];
+    if(c>best){best=c;bestLag=lag;} }
+  if(bestLag<1) return null;
+  if(best/energy<0.42) return null;
+  const midi=Math.round(69+12*Math.log2((dsr/bestLag)/440));
+  return (midi<24||midi>96)?null:midi;
+}
+function detectKey(midis){
+  const pc=new Array(12).fill(0);
+  for(const m of midis) if(m!=null) pc[((m%12)+12)%12]++;
+  const major=[0,2,4,5,7,9,11];
+  let root=0,bestScore=-1;
+  for(let r=0;r<12;r++){ let sc=0; for(const iv of major) sc+=pc[(r+iv)%12];
+    if(sc>bestScore){bestScore=sc;root=r;} }
+  return {root,scale:major};
+}
+function snapToScale(m,key){
+  if(m==null) return null;
+  const pc=((m%12)+12)%12, rel=((pc-key.root)%12+12)%12;
+  let best=key.scale[0],bd=99;
+  for(const iv of key.scale){ const d=Math.min(Math.abs(iv-rel),12-Math.abs(iv-rel)); if(d<bd){bd=d;best=iv;} }
+  return (m-pc)+((key.root+best)%12);
+}
+function mergeBar(midis){
+  const notes=[]; let i=0;
+  while(i<16){ if(midis[i]==null){i++;continue;}
+    let j=i+1; while(j<16 && midis[j]===midis[i]) j++;
+    notes.push({start:i,len:j-i,pitch:midis[i],vel:0.85}); i=j; }
+  return notes;
+}
+
+function analyzeSong(buffer){
+  const sr=buffer.sampleRate;
+  let mono=toMono(buffer);
+  const maxDur=120;
+  if(mono.length>sr*maxDur) mono=mono.subarray(0,Math.floor(sr*maxDur));
+
+  const bpm=detectBPM(mono,sr);
+  const stepDur=(60/bpm)/4;
+  const maxBars=24;
+  let totalSteps=Math.floor((mono.length/sr)/stepDur);
+  totalSteps=Math.min(totalSteps,maxBars*16);
+  totalSteps=Math.max(16,totalSteps-(totalSteps%16));
+
+  // drums from frequency bands
+  const low=biquad(mono,...lpCoef(sr,110,0.7));
+  const mid=biquad(mono,...bpCoef(sr,1900,1.0));
+  const high=biquad(mono,...hpCoef(sr,7500,0.7));
+  const kick=stepHits(low,sr,stepDur,totalSteps,0.18);
+  const snare=stepHits(mid,sr,stepDur,totalSteps,0.22);
+  const hat=stepHits(high,sr,stepDur,totalSteps,0.14);
+
+  // pitch from downsampled signal
+  const dsr=8000;
+  const ds=downsample(biquad(mono,...lpCoef(sr,3600,0.7)),sr,dsr);
+  const bassSrc=biquad(ds,...lpCoef(dsr,320,0.7));
+  const leadSrc=biquad(ds,...bpCoef(dsr,800,0.6));
+  const bassMidi=[],leadMidi=[];
+  const segLen=Math.floor(stepDur*dsr);
+  for(let s=0;s<totalSteps;s++){
+    const st=Math.floor(s*stepDur*dsr);
+    bassMidi[s]=pitchAt(bassSrc,st,segLen,dsr,41,180);
+    leadMidi[s]=pitchAt(leadSrc,st,segLen,dsr,165,1000);
+  }
+  const key=detectKey(leadMidi.concat(bassMidi));
+  for(let s=0;s<totalSteps;s++){ bassMidi[s]=snapToScale(bassMidi[s],key); leadMidi[s]=snapToScale(leadMidi[s],key);
+    // de-clutter lead: drop a note equal to bass (likely bleakage)
+    if(leadMidi[s]!=null && bassMidi[s]!=null && ((leadMidi[s]-bassMidi[s])%12+12)%12===0) leadMidi[s]=null;
+  }
+  return {bpm,totalSteps,kick,snare,hat,bassMidi,leadMidi,key};
+}
+
+function applyAnalysis(res,name){
+  stop();
+  proj=newProject();
+  proj.bpm=res.bpm; A.bpm=res.bpm; proj.steps=16;
+  refreshFx(true);
+
+  const kick=makeTrack('drum',{name:'Kick',drumType:'kick'});
+  const snare=makeTrack('drum',{name:'Snare',drumType:'snare'});
+  const hat=makeTrack('drum',{name:'Hi-Hat',drumType:'hihat'});
+  const bass=makeTrack('synth',{name:'Bass'});
+  bass.wave='sawtooth'; bass.cutoff=900; bass.resonance=4; bass.useRoll=true;
+  bass.attack=0.005; bass.decay=0.15; bass.sustain=0.4; bass.release=0.12;
+  const lead=makeTrack('synth',{name:'Lead'});
+  lead.wave='square'; lead.cutoff=4200; lead.useRoll=true;
+  lead.attack=0.01; lead.decay=0.12; lead.sustain=0.6; lead.release=0.18;
+  proj.tracks=[kick,snare,hat,bass,lead];
+
+  const numBars=res.totalSteps/16;
+  const sigMap=new Map(); proj.patterns=[]; proj.song=[];
+  const mkSteps=()=>Array.from({length:16},()=>({on:false,pitch:0,vel:0.9}));
+  for(let bar=0;bar<numBars;bar++){
+    const base=bar*16;
+    const dKick=mkSteps(),dSnare=mkSteps(),dHat=mkSteps();
+    for(let i=0;i<16;i++){
+      if(res.kick[base+i]){ dKick[i].on=true; dKick[i].vel=res.kick[base+i]; }
+      if(res.snare[base+i]){ dSnare[i].on=true; dSnare[i].vel=res.snare[base+i]; }
+      if(res.hat[base+i]){ dHat[i].on=true; dHat[i].vel=res.hat[base+i]; }
+    }
+    const bassNotes=mergeBar(res.bassMidi.slice(base,base+16));
+    const leadNotes=mergeBar(res.leadMidi.slice(base,base+16));
+    const sig=JSON.stringify([
+      dKick.map(s=>s.on?1:0), dSnare.map(s=>s.on?1:0), dHat.map(s=>s.on?1:0), bassNotes, leadNotes ]);
+    let idx=sigMap.get(sig);
+    if(idx==null){
+      idx=proj.patterns.length; sigMap.set(sig,idx);
+      const data={}; data[kick.id]=dKick; data[snare.id]=dSnare; data[hat.id]=dHat;
+      data[bass.id]=mkSteps(); data[lead.id]=mkSteps();
+      const roll={}; roll[kick.id]=[]; roll[snare.id]=[]; roll[hat.id]=[];
+      roll[bass.id]=bassNotes; roll[lead.id]=leadNotes;
+      proj.patterns.push({name:'Pat '+(idx+1), data, roll});
+    }
+    proj.song.push(idx);
+  }
+  if(!proj.patterns.length) addPattern();
+  A.curPattern=0;
+
+  document.getElementById('bpm').value=res.bpm;
+  document.getElementById('swing').value=proj.swing;
+  document.getElementById('master').value=proj.master;
+  document.getElementById('stepCount').value=16;
+  selectedTrack=null; renderInspector(); renderPatList(); renderGrid();
+  setSongMode(true);
+  setInfo('Recreated “'+name+'”: '+res.bpm+' BPM, '+proj.patterns.length+' unique pattern'+(proj.patterns.length===1?'':'s')+', song of '+proj.song.length+' bars (press Space)');
 }
 
 /* ============================================================
