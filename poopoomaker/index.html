@@ -222,7 +222,7 @@
     </div>
 
     <div class="grp" style="margin-left:auto">
-      <button class="btn" id="autoBeat" title="Upload a song; recreate a simplified beat + melody">🎼 Song → Beat</button>
+      <button class="btn" id="autoBeat" title="Upload a song; recreate a simplified beat + melody">🎼 Song → Beat 2.0</button>
       <button class="btn green" id="exportWav">⬇ Export WAV</button>
       <button class="btn" id="saveProj">Save</button>
       <button class="btn" id="loadProj">Load</button>
@@ -366,7 +366,7 @@ function makeTrack(type, opts={}){
     // drum
     drumType:opts.drumType||'kick',
     // sampler
-    buffer:null, sampleName:'', sampleBase:60, sampleB64:null,
+    buffer:null, sampleName:'', sampleBase:60, sampleB64:null, loopSample:false, chop:false,
     // editing
     useRoll:false,
   };
@@ -501,8 +501,8 @@ function playSynth(ctx, dest, track, when, midi, vel, dur){
   for(const o of oscs){ o.start(when); o.stop(end+0.02); }
 }
 
-// SAMPLER voice
-function playSampler(ctx, dest, track, when, midi, vel, dur){
+// SAMPLER voice ; offset = start position in the buffer (s), clip = seconds to play
+function playSampler(ctx, dest, track, when, midi, vel, dur, offset, clip){
   if(!track.buffer) return;
   const ch=trackChannel(ctx,dest,track);
   const filt=ctx.createBiquadFilter();
@@ -511,11 +511,24 @@ function playSampler(ctx, dest, track, when, midi, vel, dur){
   const env=ctx.createGain(); env.gain.value=0.0001; env.connect(filt);
   const src=ctx.createBufferSource();
   src.buffer=track.buffer;
-  src.playbackRate.value=Math.pow(2,(midi-track.sampleBase)/12);
+  const rate=Math.pow(2,(midi-track.sampleBase)/12);
+  src.playbackRate.value=rate;
   src.connect(env);
-  const natural=track.buffer.duration/src.playbackRate.value;
-  const end=applyEnv(ctx,env,when,vel,track.attack,track.decay,track.sustain,track.release,Math.min(dur,natural));
-  src.start(when); src.stop(when+natural+0.05);
+  const off=offset||0;
+  if(clip!=null){
+    // play an exact segment (used by the 1:1 "chop" mode)
+    const end=applyEnv(ctx,env,when,vel,track.attack,track.decay,track.sustain,track.release,Math.min(dur,clip));
+    src.start(when, off, clip); src.stop(when+clip+0.05);
+  } else if(track.loopSample){
+    // loop the slice to fill the whole note length (sustained instruments)
+    src.loop=true;
+    const end=applyEnv(ctx,env,when,vel,track.attack,track.decay,track.sustain,track.release,dur);
+    src.start(when, off); src.stop(end+0.05);
+  } else {
+    const natural=track.buffer.duration/rate - off;
+    const end=applyEnv(ctx,env,when,vel,track.attack,track.decay,track.sustain,track.release,Math.min(dur,natural));
+    src.start(when, off); src.stop(when+natural+0.05);
+  }
 }
 
 // DRUM synthesis
@@ -589,7 +602,10 @@ function triggerRollNote(ctx, dest, track, note, when, stepDur){
   if(!audible(track)) return;
   const dur=note.len*stepDur*0.98;
   if(track.type==='synth') playSynth(ctx,dest,track,when,note.pitch,note.vel,dur);
-  else if(track.type==='sampler') playSampler(ctx,dest,track,when,note.pitch,note.vel,dur);
+  else if(track.type==='sampler'){
+    const clip = track.chop ? note.len*stepDur : null;   // 1:1 chop plays an exact segment
+    playSampler(ctx,dest,track,when,note.pitch,note.vel,dur,note.off||0,clip);
+  }
   else if(track.type==='drum') playDrum(ctx,dest,track,when,note.vel);
 }
 
@@ -1599,13 +1615,76 @@ async function importSongToBeat(file){
   let buffer;
   try{ const arr=await file.arrayBuffer(); buffer=await A.ctx.decodeAudioData(arr.slice(0)); }
   catch(err){ setInfo('Could not decode that file: '+err.message); return; }
-  openModal('🎼 Auto-Beat', `<div class="sub" style="max-width:480px">Analyzing “${escapeHtml(file.name)}” — detecting tempo, drums, bass and melody, then splitting it into simplified patterns. This can take a few seconds…</div>`);
-  await new Promise(r=>setTimeout(r,60)); // allow modal to paint
-  try{
-    const res=analyzeSong(buffer);
-    applyAnalysis(res, file.name);
-  }catch(err){ setInfo('Analysis failed: '+err.message); }
-  closeModal();
+  // let the user pick the recreation engine
+  openModal('🎼 Auto-Beat — choose sound', `
+    <div style="display:flex;flex-direction:column;gap:12px;max-width:560px">
+      <div class="sub" style="margin:0">“${escapeHtml(file.name)}” — how should the recreation make sound?</div>
+      <button class="btn green" id="eng_synth" style="text-align:left;padding:14px">
+        <b>Synth instruments</b> &nbsp;<span style="color:var(--accent2)">(recommended)</span>
+        <div class="sub" style="margin:4px 0 0">Clean, musical drums + bass + lead synths playing the detected notes. Most reliable.</div>
+      </button>
+      <button class="btn" id="eng_sample" style="text-align:left;padding:14px">
+        <b>Sample the original</b> &nbsp;<span style="color:var(--yellow)">(experimental)</span>
+        <div class="sub" style="margin:4px 0 0">Chops one-shots &amp; a tone slice out of the song and re-pitches them. Keeps some original character but can sound rough on dense mixes.</div>
+      </button>
+      <button class="btn" id="eng_chop" style="text-align:left;padding:14px">
+        <b>Split 1:1 into bars</b> &nbsp;<span style="color:var(--blue)">(exact audio)</span>
+        <div class="sub" style="margin:4px 0 0">No re-synthesis — detects tempo and cuts the actual recording into one pattern per bar, chained as the song. Plays back as the original; rearrange the bars to remix.</div>
+      </button>
+    </div>`);
+  const run=async(useSamples)=>{
+    openModal('🎼 Auto-Beat', `<div class="sub" style="max-width:480px">Analyzing “${escapeHtml(file.name)}” — detecting tempo, drums, bass and melody… This can take a few seconds.</div>`);
+    await new Promise(r=>setTimeout(r,60));
+    try{ applyAnalysis(analyzeSong(buffer,useSamples), file.name); }
+    catch(err){ setInfo('Analysis failed: '+err.message); }
+    closeModal();
+  };
+  const runChop=async()=>{
+    openModal('🎼 Auto-Beat', `<div class="sub" style="max-width:480px">Splitting “${escapeHtml(file.name)}” into bar-length patterns…</div>`);
+    await new Promise(r=>setTimeout(r,60));
+    try{ applyChop(buffer, file.name); }
+    catch(err){ setInfo('Split failed: '+err.message); }
+    closeModal();
+  };
+  document.getElementById('eng_synth').onclick=()=>run(false);
+  document.getElementById('eng_sample').onclick=()=>run(true);
+  document.getElementById('eng_chop').onclick=()=>runChop();
+}
+
+// 1:1 — cut the actual recording into one pattern per bar, chained as the song
+function applyChop(buffer, name){
+  stop();
+  const sr=buffer.sampleRate;
+  let mono=toMono(buffer);
+  const bpm=detectBPM(mono.length>sr*120?mono.subarray(0,Math.floor(sr*120)):mono, sr);
+  proj=newProject(); proj.bpm=bpm; A.bpm=bpm; proj.steps=16; refreshFx(true);
+  const stepDur=(60/bpm)/4, barDur=16*stepDur;
+  const numBars=clamp(Math.floor(buffer.duration/barDur),1,256);
+
+  const t=makeTrack('sampler',{name:'Original'});
+  t.buffer=buffer; t.sampleBase=60; t.useRoll=true; t.chop=true;
+  t.sampleName=name; t.cutoff=20000; t.resonance=0.7; t.vol=0.95;
+  t.attack=0.003; t.decay=0; t.sustain=1; t.release=0.006;
+  // embed audio for save/load only if reasonably small (avoid a huge JSON / UI freeze)
+  if(buffer.duration<=45){ try{ t.sampleB64=bufferToB64(buffer); }catch(e){} }
+  proj.tracks=[t];
+
+  proj.patterns=[]; proj.song=[];
+  const mkSteps=()=>Array.from({length:16},()=>({on:false,pitch:0,vel:0.9}));
+  for(let bar=0;bar<numBars;bar++){
+    const data={}; data[t.id]=mkSteps();
+    const roll={}; roll[t.id]=[{start:0,len:16,pitch:60,vel:1,off:bar*barDur}];
+    proj.patterns.push({name:'Bar '+(bar+1), data, roll});
+    proj.song.push(bar);
+  }
+  A.curPattern=0;
+  document.getElementById('bpm').value=bpm;
+  document.getElementById('swing').value=proj.swing;
+  document.getElementById('master').value=proj.master;
+  document.getElementById('stepCount').value=16;
+  selectedTrack=null; renderInspector(); renderPatList(); renderGrid();
+  setSongMode(true);
+  setInfo('Split “'+name+'” 1:1 into '+numBars+' bars @ '+bpm+' BPM — press Space (reorder bars in the Song Arranger to remix)');
 }
 
 /* ---- DSP helpers ---- */
@@ -1649,29 +1728,75 @@ function detectBPM(mono,sr){
   while(bpm<70) bpm*=2; while(bpm>180) bpm/=2;
   return clamp(Math.round(bpm),40,300);
 }
-function stepHits(sig,sr,stepDur,totalSteps,threshFrac){
+// best sub-step phase so the grid lands on real onsets (uses kick/low band)
+function bestOffset(sig,sr,stepDur,totalSteps){
+  const subs=24, win=Math.max(1,Math.floor(0.018*sr));
+  let bestOff=0,bestScore=-1;
+  for(let k=0;k<subs;k++){
+    const off=k*stepDur/subs; let score=0;
+    for(let s=0;s<totalSteps;s++){
+      const c=Math.floor((off+s*stepDur)*sr); let e=0;
+      for(let i=0;i<win;i++){const v=sig[c+i]||0; e+=v*v;}
+      score+=Math.sqrt(e);
+    }
+    if(score>bestScore){bestScore=score;bestOff=off;}
+  }
+  return bestOff;
+}
+function stepHits(sig,sr,stepDur,totalSteps,offset,threshFrac){
   const rms=new Float32Array(totalSteps);
-  for(let s=0;s<totalSteps;s++){ const a=Math.floor(s*stepDur*sr), b=Math.floor((s+1)*stepDur*sr);
+  for(let s=0;s<totalSteps;s++){ const a=Math.floor((offset+s*stepDur)*sr), b=Math.floor((offset+(s+1)*stepDur)*sr);
     let e=0; for(let i=a;i<b;i++){const v=sig[i]||0; e+=v*v;} rms[s]=Math.sqrt(e/Math.max(1,b-a)); }
   let mx=0; for(let s=0;s<totalSteps;s++) mx=Math.max(mx,rms[s]);
   const hits=new Array(totalSteps).fill(0);
   if(mx<=0) return hits;
   const th=mx*threshFrac;
-  for(let s=0;s<totalSteps;s++){ const prev=s>0?rms[s-1]:0;
-    if(rms[s]>th && rms[s]>=prev*0.85) hits[s]=clamp(rms[s]/mx,0.45,1); }
+  let lastHit=-9;
+  for(let s=0;s<totalSteps;s++){
+    const prev=s>0?rms[s-1]:0, next=s<totalSteps-1?rms[s+1]:0;
+    const rising=rms[s]>prev*1.12;                 // sharp transient
+    const peak=rms[s]>=prev && rms[s]>=next;        // local maximum
+    const refractory=(s-lastHit)<1 && rms[s]<prev;  // suppress decay tail
+    if(rms[s]>th && (rising||peak) && !refractory){ hits[s]=clamp(rms[s]/mx,0.45,1); lastHit=s; }
+  }
   return hits;
 }
-function pitchAt(ds,start,len,dsr,fmin,fmax){
-  let energy=0; for(let i=0;i<len;i++){const v=ds[start+i]||0; energy+=v*v;}
-  if(energy<1e-4) return null;
-  const minLag=Math.max(2,Math.floor(dsr/fmax)), maxLag=Math.floor(dsr/fmin);
-  let best=0,bestLag=-1;
-  for(let lag=minLag;lag<=maxLag;lag++){ let c=0; for(let i=0;i+lag<len;i++) c+=ds[start+i]*ds[start+i+lag];
-    if(c>best){best=c;bestLag=lag;} }
-  if(bestLag<1) return null;
-  if(best/energy<0.42) return null;
-  const midi=Math.round(69+12*Math.log2((dsr/bestLag)/440));
+// YIN pitch detector w/ parabolic interpolation; returns fractional MIDI or null
+function yinPitch(buf,start,len,sr,fmin,fmax){
+  let energy=0; for(let i=0;i<len;i++){const v=buf[start+i]||0; energy+=v*v;}
+  if(energy/len<2e-5) return null;
+  const maxTau=Math.min(len-2,Math.floor(sr/fmin)), minTau=Math.max(2,Math.floor(sr/fmax));
+  const d=new Float32Array(maxTau+1);
+  for(let tau=1;tau<=maxTau;tau++){ let sum=0;
+    for(let i=0;i<len-maxTau;i++){ const diff=buf[start+i]-buf[start+i+tau]; sum+=diff*diff; }
+    d[tau]=sum; }
+  const cmnd=new Float32Array(maxTau+1); cmnd[0]=1; let run=0;
+  for(let tau=1;tau<=maxTau;tau++){ run+=d[tau]; cmnd[tau]=d[tau]*tau/(run||1); }
+  const thresh=0.15; let tau=-1;
+  for(let t=minTau;t<=maxTau;t++){
+    if(cmnd[t]<thresh){ while(t+1<=maxTau && cmnd[t+1]<cmnd[t]) t++; tau=t; break; }
+  }
+  if(tau<0){ // fallback: global min in range
+    let best=Infinity; for(let t=minTau;t<=maxTau;t++) if(cmnd[t]<best){best=cmnd[t];tau=t;}
+    if(tau<0 || best>0.6) return null;
+  }
+  // parabolic interpolation around tau
+  let betterTau=tau;
+  if(tau>minTau && tau<maxTau){
+    const a=cmnd[tau-1], b=cmnd[tau], c=cmnd[tau+1], denom=(a+c-2*b);
+    if(Math.abs(denom)>1e-9) betterTau=tau+(a-c)/(2*denom);
+  }
+  const freq=sr/betterTau;
+  if(freq<fmin||freq>fmax) return null;
+  const midi=69+12*Math.log2(freq/440);
   return (midi<24||midi>96)?null:midi;
+}
+// remove single-step outliers between two equal neighbours
+function medianSmooth(arr){
+  for(let i=1;i<arr.length-1;i++){
+    if(arr[i]!=null && arr[i-1]!=null && arr[i+1]!=null && arr[i-1]===arr[i+1] && arr[i]!==arr[i-1]) arr[i]=arr[i-1];
+  }
+  return arr;
 }
 function detectKey(midis){
   const pc=new Array(12).fill(0);
@@ -1689,15 +1814,59 @@ function snapToScale(m,key){
   for(const iv of key.scale){ const d=Math.min(Math.abs(iv-rel),12-Math.abs(iv-rel)); if(d<bd){bd=d;best=iv;} }
   return (m-pc)+((key.root+best)%12);
 }
-function mergeBar(midis){
+function mergeBar(midis,maxLen){
+  maxLen=maxLen||16;
   const notes=[]; let i=0;
   while(i<16){ if(midis[i]==null){i++;continue;}
     let j=i+1; while(j<16 && midis[j]===midis[i]) j++;
-    notes.push({start:i,len:j-i,pitch:midis[i],vel:0.85}); i=j; }
+    let s=i; while(s<j){ const len=Math.min(maxLen,j-s); notes.push({start:s,len,pitch:midis[i],vel:0.85}); s+=len; }
+    i=j; }
   return notes;
 }
 
-function analyzeSong(buffer){
+/* ---- sampling the ORIGINAL audio to reuse its timbre ---- */
+function argmaxArr(arr){ let mi=-1,mv=0; for(let i=0;i<arr.length;i++) if(arr[i]>mv){mv=arr[i];mi=i;} return mi; }
+function refineOnset(sig,start,sr,winSec){
+  const w=Math.floor((winSec||0.03)*sr); let mi=start,mv=0;
+  for(let i=0;i<w;i++){ const v=Math.abs(sig[start+i]||0); if(v>mv){mv=v;mi=start+i;} }
+  return Math.max(0, mi-Math.floor(0.002*sr));
+}
+function findStableRun(arr,minLen){
+  let bStart=-1,bLen=0,bMidi=null,i=0;
+  while(i<arr.length){ if(arr[i]==null){i++;continue;}
+    let j=i+1; while(j<arr.length && arr[j]===arr[i]) j++;
+    if(j-i>bLen){bLen=j-i;bStart=i;bMidi=arr[i];} i=j; }
+  if(bLen>=(minLen||2)) return {start:bStart,midi:bMidi,len:bLen};
+  for(i=0;i<arr.length;i++) if(arr[i]!=null) return {start:i,midi:arr[i],len:1};
+  return null;
+}
+function sliceToBuffer(ctx,sig,sr,start,len,fadeSec){
+  const n=Math.max(64,len), buf=ctx.createBuffer(1,n,sr), d=buf.getChannelData(0);
+  let peak=0;
+  for(let i=0;i<n;i++){ const v=sig[start+i]||0; d[i]=v; if(Math.abs(v)>peak) peak=Math.abs(v); }
+  const g=peak>1e-4?0.92/peak:1, fade=Math.min(Math.floor((fadeSec||0.004)*sr),Math.floor(n/8));
+  for(let i=0;i<n;i++){ let w=1; if(i<fade)w=i/fade; else if(i>n-fade)w=(n-i)/fade; d[i]*=g*w; }
+  return buf;
+}
+function oneShotSample(ctx,sig,step,offset,stepDur,sr,maxSec){
+  if(step<0) return null;
+  const start=refineOnset(sig,Math.floor((offset+step*stepDur)*sr),sr,0.03);
+  const len=Math.floor(Math.min(maxSec,stepDur*1.9)*sr);
+  return sliceToBuffer(ctx,sig,sr,start,len);
+}
+function instrumentSample(ctx,sig,round,offset,stepDur,sr){
+  const run=findStableRun(round,2); if(!run) return null;
+  const steps=clamp(run.len,2,4);
+  // skip ~40ms of attack so the looped slice is a steadier sustain
+  const skip=Math.floor(0.04*sr);
+  const start=Math.floor((offset+run.start*stepDur)*sr)+skip;
+  const len=Math.floor(steps*stepDur*sr);
+  return {buf:sliceToBuffer(ctx,sig,sr,start,len,0.006), base:run.midi};
+}
+function bufferToB64(buf){ return arrayBufferToB64(encodeWav(buf)); }
+function foldToBase(p,base){ while(p-base>6) p-=12; while(base-p>6) p+=12; return clamp(p,24,96); }
+
+function analyzeSong(buffer,useSamples){
   const sr=buffer.sampleRate;
   let mono=toMono(buffer);
   const maxDur=120;
@@ -1710,32 +1879,65 @@ function analyzeSong(buffer){
   totalSteps=Math.min(totalSteps,maxBars*16);
   totalSteps=Math.max(16,totalSteps-(totalSteps%16));
 
-  // drums from frequency bands
+  // drums from frequency bands (phase-aligned to the kick)
   const low=biquad(mono,...lpCoef(sr,110,0.7));
   const mid=biquad(mono,...bpCoef(sr,1900,1.0));
   const high=biquad(mono,...hpCoef(sr,7500,0.7));
-  const kick=stepHits(low,sr,stepDur,totalSteps,0.18);
-  const snare=stepHits(mid,sr,stepDur,totalSteps,0.22);
-  const hat=stepHits(high,sr,stepDur,totalSteps,0.14);
+  const offset=bestOffset(low,sr,stepDur,totalSteps);
+  const kick=stepHits(low,sr,stepDur,totalSteps,offset,0.18);
+  const snare=stepHits(mid,sr,stepDur,totalSteps,offset,0.22);
+  const hat=stepHits(high,sr,stepDur,totalSteps,offset,0.14);
 
-  // pitch from downsampled signal
-  const dsr=8000;
-  const ds=downsample(biquad(mono,...lpCoef(sr,3600,0.7)),sr,dsr);
-  const bassSrc=biquad(ds,...lpCoef(dsr,320,0.7));
-  const leadSrc=biquad(ds,...bpCoef(dsr,800,0.6));
-  const bassMidi=[],leadMidi=[];
-  const segLen=Math.floor(stepDur*dsr);
+  // pitch: bass at 8kHz, lead at 16kHz (higher res = truer tone), YIN + interpolation
+  const dsrB=8000, dsrL=16000;
+  const bassSrc=biquad(downsample(biquad(mono,...lpCoef(sr,1600,0.7)),sr,dsrB),...lpCoef(dsrB,320,0.7));
+  const leadSrc=biquad(downsample(biquad(mono,...lpCoef(sr,5000,0.7)),sr,dsrL),...bpCoef(dsrL,700,0.5));
+  const bassF=[],leadF=[]; // fractional midi
+  // analyse a slightly longer window than one step for stable periodicity
   for(let s=0;s<totalSteps;s++){
-    const st=Math.floor(s*stepDur*dsr);
-    bassMidi[s]=pitchAt(bassSrc,st,segLen,dsr,41,180);
-    leadMidi[s]=pitchAt(leadSrc,st,segLen,dsr,165,1000);
+    const stB=Math.floor((offset+s*stepDur)*dsrB), lenB=Math.floor(stepDur*1.5*dsrB);
+    const stL=Math.floor((offset+s*stepDur)*dsrL), lenL=Math.floor(stepDur*1.5*dsrL);
+    bassF[s]=yinPitch(bassSrc,stB,lenB,dsrB,41,200);
+    leadF[s]=yinPitch(leadSrc,stL,lenL,dsrL,160,1100);
   }
-  const key=detectKey(leadMidi.concat(bassMidi));
-  for(let s=0;s<totalSteps;s++){ bassMidi[s]=snapToScale(bassMidi[s],key); leadMidi[s]=snapToScale(leadMidi[s],key);
-    // de-clutter lead: drop a note equal to bass (likely bleakage)
+  // round, octave-stabilise the lead (minimise jumps)
+  const bassRound=bassF.map(v=>v==null?null:Math.round(v));
+  const leadRound=leadF.map(v=>v==null?null:Math.round(v));
+  let prev=null;
+  for(let s=0;s<totalSteps;s++){
+    let m=leadRound[s]; if(m==null){continue;}
+    if(prev!=null){ while(m-prev>7 && m-12>=24) m-=12; while(prev-m>7 && m+12<=96) m+=12; }
+    leadRound[s]=m; prev=m;
+  }
+
+  // --- (optional) sample the ORIGINAL audio to keep some of its timbre ---
+  let samples=null;
+  if(useSamples){
+    const ctx=A.ctx;
+    const snareTimbre=biquad(biquad(mono,...hpCoef(sr,180,0.7)),...lpCoef(sr,6500,0.7));
+    const bassTimbre=biquad(mono,...lpCoef(sr,420,0.7));
+    const leadTimbre=biquad(biquad(mono,...hpCoef(sr,200,0.7)),...lpCoef(sr,3200,0.7));
+    try{
+      samples={
+        kick: oneShotSample(ctx,low,argmaxArr(kick),offset,stepDur,sr,0.26),
+        snare:oneShotSample(ctx,snareTimbre,argmaxArr(snare),offset,stepDur,sr,0.24),
+        hat:  oneShotSample(ctx,high,argmaxArr(hat),offset,stepDur,sr,0.10),
+        bass: instrumentSample(ctx,bassTimbre,bassRound,offset,stepDur,sr),
+        lead: instrumentSample(ctx,leadTimbre,leadRound,offset,stepDur,sr),
+      };
+    }catch(err){ samples=null; }
+  }
+
+  // key-snap melody for the note data + de-clutter + smooth
+  const bassMidi=bassRound.slice(), leadMidi=leadRound.slice();
+  const key=detectKey(leadRound.concat(bassRound));
+  for(let s=0;s<totalSteps;s++){
+    bassMidi[s]=snapToScale(bassMidi[s],key);
+    leadMidi[s]=snapToScale(leadMidi[s],key);
     if(leadMidi[s]!=null && bassMidi[s]!=null && ((leadMidi[s]-bassMidi[s])%12+12)%12===0) leadMidi[s]=null;
   }
-  return {bpm,totalSteps,kick,snare,hat,bassMidi,leadMidi,key};
+  medianSmooth(bassMidi); medianSmooth(leadMidi);
+  return {bpm,totalSteps,kick,snare,hat,bassMidi,leadMidi,key,offset,samples};
 }
 
 function applyAnalysis(res,name){
@@ -1743,17 +1945,45 @@ function applyAnalysis(res,name){
   proj=newProject();
   proj.bpm=res.bpm; A.bpm=res.bpm; proj.steps=16;
   refreshFx(true);
+  const sm=res.samples||{};
 
-  const kick=makeTrack('drum',{name:'Kick',drumType:'kick'});
-  const snare=makeTrack('drum',{name:'Snare',drumType:'snare'});
-  const hat=makeTrack('drum',{name:'Hi-Hat',drumType:'hihat'});
-  const bass=makeTrack('synth',{name:'Bass'});
-  bass.wave='sawtooth'; bass.cutoff=900; bass.resonance=4; bass.useRoll=true;
-  bass.attack=0.005; bass.decay=0.15; bass.sustain=0.4; bass.release=0.12;
-  const lead=makeTrack('synth',{name:'Lead'});
-  lead.wave='square'; lead.cutoff=4200; lead.useRoll=true;
-  lead.attack=0.01; lead.decay=0.12; lead.sustain=0.6; lead.release=0.18;
+  // helper: build a sampler track from an extracted buffer
+  const samplerFrom=(buf,base,nm,opts)=>{
+    const t=makeTrack('sampler',{name:nm});
+    t.buffer=buf; t.sampleBase=base; t.sampleName=nm+' (orig)';
+    try{ t.sampleB64=bufferToB64(buf); }catch(e){}
+    t.cutoff=15000; t.resonance=0.7;
+    Object.assign(t,opts||{});
+    return t;
+  };
+
+  let usedSamples=false;
+  // --- DRUMS: original one-shots if available, else synth drums ---
+  let kick = sm.kick ? samplerFrom(sm.kick,60,'Kick',{attack:0.001,decay:0.02,sustain:1,release:0.10})
+                     : makeTrack('drum',{name:'Kick',drumType:'kick'});
+  let snare= sm.snare? samplerFrom(sm.snare,60,'Snare',{attack:0.001,decay:0.02,sustain:1,release:0.10})
+                     : makeTrack('drum',{name:'Snare',drumType:'snare'});
+  let hat  = sm.hat  ? samplerFrom(sm.hat,60,'Hi-Hat',{attack:0.001,decay:0.01,sustain:1,release:0.03})
+                     : makeTrack('drum',{name:'Hi-Hat',drumType:'hihat'});
+  if(sm.kick||sm.snare||sm.hat) usedSamples=true;
+
+  // --- BASS: original tone sampler (re-pitched + looped to fill notes), else unison saw ---
+  let bass;
+  if(sm.bass){ bass=samplerFrom(sm.bass.buf,sm.bass.base,'Bass',{useRoll:true,loopSample:true,attack:0.006,decay:0,sustain:1,release:0.06,vol:0.85}); usedSamples=true; }
+  else{ bass=makeTrack('synth',{name:'Bass'}); bass.wave='sawtooth'; bass.cutoff=750; bass.resonance=3; bass.useRoll=true;
+        bass.unison=2; bass.detune=6; bass.vol=0.85; bass.attack=0.006; bass.decay=0.18; bass.sustain=0.55; bass.release=0.14; }
+
+  // --- LEAD: original tone sampler (re-pitched + looped), else supersaw ---
+  let lead;
+  if(sm.lead){ lead=samplerFrom(sm.lead.buf,sm.lead.base,'Lead',{useRoll:true,loopSample:true,attack:0.006,decay:0,sustain:1,release:0.08,vol:0.78}); usedSamples=true; }
+  else{ lead=makeTrack('synth',{name:'Lead'}); lead.wave='sawtooth'; lead.cutoff=3200; lead.resonance=1.2; lead.useRoll=true;
+        lead.unison=3; lead.detune=7; lead.vol=0.7; lead.attack=0.008; lead.decay=0.14; lead.sustain=0.7; lead.release=0.22; }
+
   proj.tracks=[kick,snare,hat,bass,lead];
+  // light reverb glue only when synthesising (sampled originals already carry room tone)
+  if(!usedSamples){ proj.fx.reverbWet=0.12; proj.fx.reverbSize=1.6; refreshFx(true); }
+  // looped sampler instruments fill any note length, so keep notes full
+  const noteCap = (t)=> 16;
 
   const numBars=res.totalSteps/16;
   const sigMap=new Map(); proj.patterns=[]; proj.song=[];
@@ -1766,8 +1996,11 @@ function applyAnalysis(res,name){
       if(res.snare[base+i]){ dSnare[i].on=true; dSnare[i].vel=res.snare[base+i]; }
       if(res.hat[base+i]){ dHat[i].on=true; dHat[i].vel=res.hat[base+i]; }
     }
-    const bassNotes=mergeBar(res.bassMidi.slice(base,base+16));
-    const leadNotes=mergeBar(res.leadMidi.slice(base,base+16));
+    const bassNotes=mergeBar(res.bassMidi.slice(base,base+16),noteCap(bass));
+    const leadNotes=mergeBar(res.leadMidi.slice(base,base+16),noteCap(lead));
+    // keep re-pitch within ~an octave of the sampled slice so timbre stays natural
+    if(bass.type==='sampler') bassNotes.forEach(n=>n.pitch=foldToBase(n.pitch,bass.sampleBase));
+    if(lead.type==='sampler') leadNotes.forEach(n=>n.pitch=foldToBase(n.pitch,lead.sampleBase));
     const sig=JSON.stringify([
       dKick.map(s=>s.on?1:0), dSnare.map(s=>s.on?1:0), dHat.map(s=>s.on?1:0), bassNotes, leadNotes ]);
     let idx=sigMap.get(sig);
@@ -1790,7 +2023,7 @@ function applyAnalysis(res,name){
   document.getElementById('stepCount').value=16;
   selectedTrack=null; renderInspector(); renderPatList(); renderGrid();
   setSongMode(true);
-  setInfo('Recreated “'+name+'”: '+res.bpm+' BPM, '+proj.patterns.length+' unique pattern'+(proj.patterns.length===1?'':'s')+', song of '+proj.song.length+' bars (press Space)');
+  setInfo('Recreated “'+name+'”'+(usedSamples?' using the song’s own sounds':'')+': '+res.bpm+' BPM, '+proj.patterns.length+' pattern'+(proj.patterns.length===1?'':'s')+', '+proj.song.length+' bars (press Space)');
 }
 
 /* ============================================================
