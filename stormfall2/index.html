@@ -1,1 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+<title>STORMFALL 2.0 — Arena Royale</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
 
+<!-- ===================== MAIN MENU / LOBBY ===================== -->
+<div id="menu" class="screen">
+  <div class="bg-grid"></div>
+  <div class="menu-inner">
+    <h1 class="title">STORM<span>FALL</span> 2.0</h1>
+    <p class="tagline">Drop in. Squad up. Last team standing wins the crown.</p>
+
+    <div id="crownBanner" class="crown-banner hidden">
+      <span class="crown-ico">👑</span>
+      <span id="crownText">Reigning Champion — you carry the crown into this lobby</span>
+    </div>
+
+    <div class="lobby-grid">
+      <!-- Hunter select -->
+      <div class="panel">
+        <h2>Choose Hunter</h2>
+        <div id="hunterList" class="hunter-list"></div>
+        <div id="hunterDesc" class="hunter-desc"></div>
+      </div>
+
+      <!-- Squad / party -->
+      <div class="panel">
+        <h2>Squad</h2>
+        <div class="squad-size">
+          <button class="size-btn active" data-size="1">Solo</button>
+          <button class="size-btn" data-size="2">Duo</button>
+          <button class="size-btn" data-size="3">Trio</button>
+        </div>
+
+        <div class="party-box">
+          <div class="party-row">
+            <span>Party Code</span>
+            <span id="partyCode" class="party-code">——————</span>
+          </div>
+          <div class="party-actions">
+            <button id="btnCreateParty">Create Party</button>
+            <button id="btnCopyCode">Copy</button>
+          </div>
+          <div class="join-row">
+            <input id="joinInput" maxlength="6" placeholder="ENTER CODE" />
+            <button id="btnJoin">Join</button>
+          </div>
+          <div id="partySlots" class="party-slots"></div>
+          <p class="hint">Empty squad slots are filled by AI hunters. Share your code so friends queue with you.</p>
+        </div>
+      </div>
+    </div>
+
+    <button id="btnPlay" class="play-btn">FIND MATCH ▸</button>
+    <p class="controls-hint">WASD move · Mouse aim · <b>LMB</b> attack · <b>Q/E</b> abilities · <b>R</b> ultimate · <b>Space</b> dash · <b>V</b> ping · <b>F</b> equip / revive</p>
+  </div>
+</div>
+
+<!-- ===================== GAME ===================== -->
+<div id="game" class="screen hidden">
+  <canvas id="canvas"></canvas>
+
+  <!-- HUD -->
+  <div id="hud">
+    <div id="topbar">
+      <div class="alive-counter"><span id="aliveCount">0</span> hunters · <span id="squadCount">0</span> squads left</div>
+      <div id="zoneTimer" class="zone-timer">Zone closing…</div>
+    </div>
+
+    <div id="squadPanel" class="squad-panel"></div>
+
+    <div id="minimap"><canvas id="minimapCanvas" width="160" height="160"></canvas></div>
+
+    <div id="killfeed" class="killfeed"></div>
+
+    <div id="abilityBar" class="ability-bar"></div>
+    <div id="abilityTooltip" class="ability-tooltip hidden"></div>
+
+    <div id="gearBar" class="gear-bar"></div>
+
+    <div id="interactPrompt" class="interact-prompt hidden"></div>
+
+    <div id="downedBanner" class="downed-banner hidden">DOWNED — a teammate can revive you</div>
+  </div>
+
+  <!-- End screen -->
+  <div id="endScreen" class="end-screen hidden">
+    <div class="end-card">
+      <div id="endIcon" class="end-icon">👑</div>
+      <h2 id="endTitle">VICTORY</h2>
+      <p id="endSub"></p>
+      <div id="endStats" class="end-stats"></div>
+      <button id="btnReturn" class="play-btn">RETURN TO LOBBY</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/fx.js"></script>
+<script src="js/game.js"></script>
+</body>
+</html>
