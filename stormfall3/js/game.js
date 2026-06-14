@@ -35,7 +35,7 @@ const HUNTERS = {
     name:'Vanguard', emoji:'🛡️', color:'#ff8a3d', role:'Bruiser', weapon:'sword',
     maxHp:360, speed:205, radius:21,
     desc:'Front-line bruiser. A wide cleave, dashes into the fray, slams the ground and shrugs off hits with a barrier.',
-    basic:{ key:'LMB', name:'Cleave', emoji:'⚔️', cd:0.48, kind:'cone', dmg:32, range:140, arc:2.0, snare:true },
+    basic:{ key:'LMB', name:'Cleave', emoji:'⚔️', cd:0.48, kind:'cone', dmg:32, range:165, arc:2.0, snare:true },
     q:{ key:'Q', name:'Skewer', emoji:'➹', cd:6, kind:'dash', dmg:55, range:300, hitRange:95, arc:1.6 },
     e:{ key:'E', name:'Bulwark', emoji:'🛡️', cd:9, kind:'shield', amount:170, dur:5 },
     r:{ key:'R', name:'Seismic Slam', emoji:'💥', cd:22, kind:'aoe', dmg:120, radius:240, delay:0.45, self:true }
@@ -312,22 +312,23 @@ function buildSprite(h){
   x.fillStyle='#222'; x.fillRect(6,6,1,1); x.fillRect(9,6,1,1);
   return c;
 }
-function drawWeapon(g, sx, sy, aim, h, sc){
-  g.save(); g.translate(sx, sy); g.rotate(aim);
-  const col=h.color, d=shade(col,-0.3);
+// origin (ox,oy) = the hunter's hand height; sizes scale with radius r
+function drawWeapon(g, ox, oy, aim, h, r){
+  g.save(); g.translate(ox, oy); g.rotate(aim);
+  const col=h.color, lite=shade(col,0.5), dark=shade(col,-0.3);
   if (h.weapon==='sword'){
-    g.fillStyle=shade(col,0.5); g.fillRect(8*sc,-1.4*sc, 12*sc, 2.8*sc);
-    g.fillStyle=d; g.fillRect(6*sc,-3*sc, 3*sc, 6*sc);
+    g.fillStyle=lite; g.fillRect(r*0.5, -r*0.11, r*1.35, r*0.22);   // blade reaches past the body
+    g.fillStyle=dark; g.fillRect(r*0.32, -r*0.24, r*0.20, r*0.48);  // crossguard
   } else if (h.weapon==='bow'){
-    g.strokeStyle=shade(col,0.3); g.lineWidth=2*sc;
-    g.beginPath(); g.arc(8*sc,0, 7*sc, -1.1, 1.1); g.stroke();
-    g.strokeStyle='#eee'; g.lineWidth=1*sc;
-    g.beginPath(); g.moveTo(8*sc+Math.cos(-1.1)*7*sc, Math.sin(-1.1)*7*sc);
-    g.lineTo(8*sc+Math.cos(1.1)*7*sc, Math.sin(1.1)*7*sc); g.stroke();
+    g.strokeStyle=lite; g.lineWidth=r*0.16;
+    g.beginPath(); g.arc(r*0.55, 0, r*0.7, -1.15, 1.15); g.stroke();
+    g.strokeStyle='#eee'; g.lineWidth=r*0.05;
+    g.beginPath(); g.moveTo(r*0.55+Math.cos(-1.15)*r*0.7, Math.sin(-1.15)*r*0.7);
+    g.lineTo(r*0.55+Math.cos(1.15)*r*0.7, Math.sin(1.15)*r*0.7); g.stroke();
   } else { // staff
-    g.strokeStyle=shade('#7a5230',0.1); g.lineWidth=2*sc;
-    g.beginPath(); g.moveTo(4*sc,0); g.lineTo(15*sc,0); g.stroke();
-    g.fillStyle=shade(col,0.4); g.beginPath(); g.arc(16*sc,0,3*sc,0,TAU); g.fill();
+    g.strokeStyle=shade('#7a5230',0.15); g.lineWidth=r*0.15;
+    g.beginPath(); g.moveTo(r*0.2, 0); g.lineTo(r*1.2, 0); g.stroke();
+    g.fillStyle=lite; g.beginPath(); g.arc(r*1.3, 0, r*0.24, 0, TAU); g.fill();
   }
   g.restore();
 }
@@ -524,7 +525,7 @@ function startMatch(){
   HUNTER_IDS.forEach(id => Sprites[id] = buildSprite(HUNTERS[id]));
 
   G = {
-    hunters:[], projectiles:[], aoes:[], items:[], pings:[], particles:[], motes:[],
+    hunters:[], projectiles:[], aoes:[], items:[], pings:[], particles:[], motes:[], swings:[],
     cam:{x:0,y:0}, t:0, over:false, placeWhenDead:0, flash:0, bolt:null, lightT:rand(5,12),
     zone:{ cx:WORLD/2, cy:WORLD/2, r:WORLD*0.82, target:WORLD*0.82, nextShrink:40, stage:0 }
   };
@@ -583,7 +584,7 @@ function cast(ent, slot){
     case 'burst': { const start=ent.aim-def.spread/2;
       for(let i=0;i<def.count;i++) fireProj(ent,def,start+def.spread*(i/(def.count-1||1)),dmg);
       Sfx.shoot(v); break; }
-    case 'cone': coneHit(ent,def,dmg); spawnBurst(ent.x+ax*45,ent.y+ay*45,ent.def.color,5); Sfx.dash(v); break;
+    case 'cone': coneHit(ent,def,dmg); spawnSwing(ent,def); Sfx.dash(v); break;
     case 'dash': {
       ent.dashVx=ax*(def.range*4); ent.dashVy=ay*(def.range*4); ent.dashT=0.25;
       if (def.hitRange>0) setTimeout(()=>{ if(ent.alive) coneHit(ent,{...def,range:def.hitRange},dmg); },120);
@@ -743,6 +744,8 @@ function addFeed(txt){ addFeedDOM(txt); if(NETROLE==='host') Net.broadcast({t:'f
 function spawnBurst(x,y,color,n){ for(let i=0;i<n;i++){ const a=rand(0,TAU),s=rand(40,220);
   G.particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:rand(.3,.6),color,r:rand(2,4)}); } }
 function spawnRing(x,y,r,color){ G.particles.push({ring:true,x,y,maxR:r,life:.5,color}); }
+function spawnSwing(ent,def){ if(!G.swings) G.swings=[];
+  G.swings.push({ x:ent.x, y:ent.y, aim:ent.aim, arc:def.arc, range:def.range, t:0.2, max:0.2 }); }
 
 // ============================================================
 //  UPDATE
@@ -817,6 +820,7 @@ function update(dt){
   for (let i=G.pings.length-1;i>=0;i--){ G.pings[i].t-=dt; if(G.pings[i].t<=0) G.pings.splice(i,1); }
   for (let i=G.particles.length-1;i>=0;i--){ const p=G.particles[i]; p.life-=dt;
     if(!p.ring){ p.x+=p.vx*dt; p.y+=p.vy*dt; p.vx*=0.9; p.vy*=0.9; } if(p.life<=0) G.particles.splice(i,1); }
+  if (G.swings) for(let i=G.swings.length-1;i>=0;i--){ G.swings[i].t-=dt; if(G.swings[i].t<=0) G.swings.splice(i,1); }
 
   // motes (screen space)
   for (const m of G.motes){ m.x+=m.vx*dt; m.y+=m.vy*dt;
@@ -977,6 +981,15 @@ function draw(){
     ctx.beginPath(); ctx.arc(sx,sy,a.r,0,TAU); ctx.fillStyle=a.color+'22'; ctx.fill();
     ctx.beginPath(); ctx.arc(sx,sy,a.r*f,0,TAU); ctx.strokeStyle=a.color; ctx.lineWidth=3; ctx.stroke(); }
 
+  // cleave swings (Vanguard)
+  if (G.swings) for (const s of G.swings){ const sx=s.x-cam.x, sy=s.y-cam.y;
+    const k=s.t/s.max, p=clamp((1-k)*1.25,0,1);
+    const a0=s.aim-s.arc/2, a1=a0+s.arc*p;
+    ctx.beginPath(); ctx.moveTo(sx,sy); ctx.arc(sx,sy,s.range,a0,a1); ctx.closePath();
+    ctx.fillStyle=`rgba(255,205,130,${0.30*k})`; ctx.fill();
+    ctx.beginPath(); ctx.moveTo(sx,sy); ctx.lineTo(sx+Math.cos(a1)*s.range, sy+Math.sin(a1)*s.range);
+    ctx.strokeStyle=`rgba(255,245,210,${0.85*k})`; ctx.lineWidth=3.5; ctx.stroke(); }
+
   // pings
   for (const pg of G.pings){ const sx=pg.x-cam.x, sy=pg.y-cam.y, pulse=1+Math.sin(G.t*8)*0.15;
     ctx.beginPath(); ctx.arc(sx,sy,16*pulse,0,TAU); ctx.strokeStyle='#ffd24a'; ctx.lineWidth=3; ctx.stroke();
@@ -1001,8 +1014,9 @@ function draw(){
 
     // weapon behind if aiming up
     const sprite=Sprites[e.hid]; const H=e.radius*2.7, sc=H/18, W=16*sc;
+    const handY=sy - e.radius*0.35;
     const aimingUp=Math.sin(e.aim)<0;
-    if (aimingUp) drawWeapon(ctx,sx,sy,e.aim,e.def,sc/2.4);
+    if (aimingUp) drawWeapon(ctx,sx,handY,e.aim,e.def,e.radius);
 
     // affliction (DoT) aura
     if (e.dots.length){ ctx.beginPath(); ctx.arc(sx,sy,e.radius+4,0,TAU); ctx.strokeStyle='rgba(155,93,229,.8)';
@@ -1019,12 +1033,12 @@ function draw(){
     const flip=Math.cos(e.aim)<0;
     ctx.save();
     if (e.downed) ctx.globalAlpha=0.7;
-    ctx.translate(sx, sy+e.radius*0.55 - H + bob);
+    ctx.translate(sx - W/2, sy+e.radius*0.55 - H + bob);   // centre sprite over the ring
     if (flip){ ctx.translate(W,0); ctx.scale(-1,1); }
     ctx.drawImage(sprite, 0,0, W, H);
     ctx.restore();
 
-    if (!aimingUp) drawWeapon(ctx,sx,sy,e.aim,e.def,sc/2.4);
+    if (!aimingUp) drawWeapon(ctx,sx,handY,e.aim,e.def,e.radius);
 
     if (e.hasCrown){ ctx.font='18px sans-serif'; ctx.textAlign='center'; ctx.fillText('👑',sx,sy-H+e.radius*0.55-8); }
 
@@ -1183,8 +1197,8 @@ function clientStartMatch(){
   if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
   Sfx.ambientStart(); Terrain.generate();
   HUNTER_IDS.forEach(id => Sprites[id]=buildSprite(HUNTERS[id]));
-  G = { hunters:[], hmap:new Map(), projectiles:[], aoes:[], items:[], pings:[], particles:[], motes:[],
-    cam:{x:WORLD/2-canvas.width/2,y:WORLD/2-canvas.height/2}, t:0, over:false, names:{}, myHunterId:null, barBuilt:false,
+  G = { hunters:[], hmap:new Map(), projectiles:[], aoes:[], items:[], pings:[], particles:[], motes:[], swings:[],
+    cam:{x:WORLD/2-canvas.width/2,y:WORLD/2-canvas.height/2}, t:0, over:false, names:{}, myHunterId:null, barBuilt:false, clientSwingCd:0,
     zone:{cx:WORLD/2,cy:WORLD/2,r:WORLD*0.82,target:WORLD*0.82,stage:0,nextShrink:40} };
   for (let i=0;i<60;i++) G.motes.push({x:rand(0,canvas.width),y:rand(0,canvas.height),vx:rand(-8,8),vy:rand(-14,-3),r:rand(0.6,2),a:rand(0.1,0.4)});
   G.feedEl=document.getElementById('killfeed');
@@ -1253,6 +1267,12 @@ function clientTick(dt){
     if(m.y<-5){m.y=canvas.height+5;m.x=rand(0,canvas.width);} if(m.x<-5)m.x=canvas.width+5; if(m.x>canvas.width+5)m.x=-5; }
   for (let i=G.particles.length-1;i>=0;i--){ const p=G.particles[i]; p.life-=dt;
     if(!p.ring){ p.x+=p.vx*dt; p.y+=p.vy*dt; p.vx*=0.9; p.vy*=0.9; } if(p.life<=0) G.particles.splice(i,1); }
+  if (G.swings) for(let i=G.swings.length-1;i>=0;i--){ G.swings[i].t-=dt; if(G.swings[i].t<=0) G.swings.splice(i,1); }
+  // optimistic cleave swing for a client controlling Vanguard
+  if (G.clientSwingCd>0) G.clientSwingCd-=dt;
+  if (G.player && G.player.hid==='vanguard' && Input.mdown && G.clientSwingCd<=0){
+    spawnSwing(G.player, HUNTERS.vanguard.basic); G.clientSwingCd=HUNTERS.vanguard.basic.cd;
+  }
   if (G.player) updateHUD();
 }
 
