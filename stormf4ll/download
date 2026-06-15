@@ -1,0 +1,181 @@
+import { useEffect, useRef, useState } from "react";
+import type { Game } from "../engine/Game";
+import { abilityOf, abilityDesc, GEAR, DASH_DESC } from "../engine/data";
+import { MAX_SLOTS, WORLD, clamp, dist } from "../engine/constants";
+
+const SLOTS: { slot: string; mk: (g: Game) => any }[] = [
+  { slot: "basic", mk: (g) => abilityOf(g.player, "basic") },
+  { slot: "dash", mk: () => ({ key: "SPC", emoji: "💨", name: "Dash", cd: 3 }) },
+  { slot: "q", mk: (g) => abilityOf(g.player, "q") },
+  { slot: "e", mk: (g) => abilityOf(g.player, "e") },
+  { slot: "r", mk: (g) => abilityOf(g.player, "r") },
+];
+
+export default function Hud({ game, onExit }: { game: Game; onExit: () => void }) {
+  const p = game.player;
+  const [tip, setTip] = useState<string | null>(null);
+  const [chatOpen, setChatOpen] = useState(false);
+  const chatRef = useRef<HTMLInputElement>(null);
+
+  // Enter opens chat
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement;
+      if (e.key === "Enter" && el.tagName !== "INPUT" && el.tagName !== "TEXTAREA" && !game.over) {
+        setChatOpen(true); setTimeout(() => chatRef.current?.focus(), 0); e.preventDefault();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [game]);
+
+  const submitChat = () => { const t = chatRef.current?.value.trim(); if (t) game.sendChat(t); if (chatRef.current) chatRef.current.value = ""; setChatOpen(false); };
+
+  // end screen
+  if (game.over && game.endInfo) {
+    const e = game.endInfo;
+    return (
+      <div id="hud">
+        <div className="end-screen">
+          <div className="end-card">
+            <div className="end-icon">{e.won ? "👑" : "💀"}</div>
+            <h2>{e.won ? "VICTORY" : "DEFEATED"}</h2>
+            <p id="endSub">{e.sub || (e.won ? "Your squad is the last team standing. The crown is yours." : `Your squad placed #${e.place}.`)}</p>
+            <div className="end-stats">
+              <div><b>#{e.place}</b><span>Placement</span></div>
+              <div><b>{e.yourKills}</b><span>Your Kills</span></div>
+              <div><b>{e.squadKills}</b><span>Squad Kills</span></div>
+            </div>
+            <button className="play-btn" onClick={onExit}>RETURN TO LOBBY</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const deploy = game.phase !== "live";
+  const mates = p ? game.hunters.filter((e: any) => e.team === p.team) : [];
+
+  // interact prompt
+  let interact: string | null = null;
+  if (p && p.alive && !p.downed) {
+    const ally = game.hunters.find((o: any) => o.team === p.team && o !== p && o.downed && dist(o.x, o.y, p.x, p.y) < 110);
+    if (ally) interact = `<b>REVIVING</b> ${ally.name} — ${Math.round(clamp(ally.reviveProg / 2.5, 0, 1) * 100)}%`;
+    else if (!game.replacePrompt) {
+      const it = game.nearestGroundItem(p, 90);
+      if (it) { const g = GEAR[it.id], owned = p.slots.find((x: any) => x.id === it.id), full = p.slots.length >= MAX_SLOTS; const verb = owned ? (owned.lvl < 3 || (it.t4 && !owned.t4) ? "Upgrade" : "Owned") : full ? "Swap" : "Equip"; interact = `<b>F</b> ${verb} ${g.name}${it.t4 ? " T4" : it.lvl > 1 ? " Lv" + it.lvl : ""}`; }
+    }
+  }
+
+  const rp = game.replacePrompt;
+  const mobileBtns: [string, string][] = [["q", "Q"], ["e", "E"], ["r", "R"], [" ", "⚡"], ["v", "⚑"], ["f", "✋"]];
+
+  return (
+    <div id="hud">
+      <div id="topbar">
+        <div className="alive-counter"><span>{game.aliveCount}</span> hunters · <span>{game.squadCount}</span> squads left</div>
+        <div className="zone-timer">{game.zoneTimerText}</div>
+      </div>
+
+      {deploy && (
+        <div className="deploy-banner" dangerouslySetInnerHTML={{
+          __html: game.phase === "choose"
+            ? `<b>DROP IN ${Math.max(0, Math.ceil(game.deployT - 5))}s</b><small>Click the map to choose your squad's landing zone — green = loot</small>`
+            : `<b>GRACE — ${Math.max(0, Math.ceil(game.deployT))}s</b><small>Grab gear &amp; position — you're invulnerable until the storm hits</small>`,
+        }} />
+      )}
+
+      <div className="squad-panel">
+        {mates.map((e: any) => (
+          <div key={e.id} className={"mate" + (e.downed ? " downed" : "") + (!e.alive ? " dead" : "")}>
+            <div className="mate-name"><span>{e.isPlayer ? "You" : e.name} {e.hasCrown ? "👑" : ""}</span><span className="tag">{e.def.name}{e.downed ? " · DOWN" : ""}</span></div>
+            <div className="bar"><i style={{ width: (e.alive ? clamp((e.hp / e.maxHp) * 100, 0, 100) : 0) + "%" }} /></div>
+          </div>
+        ))}
+      </div>
+
+      <div className="killfeed">{game.feed.slice().reverse().map((f) => <div key={f.id} className="kf">{f.txt}</div>)}</div>
+
+      {p && (
+        <>
+          {p.shield > 0.5 && (
+            <div className="shield-ind">🛡️ <span>{Math.ceil(p.shield)}</span><span className="sbar"><i style={{ width: clamp((p.shield / Math.max(p.maxShield || 0, p.shield, 150)) * 100, 0, 100) + "%" }} /></span></div>
+          )}
+
+          <div className="ability-bar">
+            {SLOTS.map(({ slot, mk }) => {
+              const def = mk(game); const cd = p.cd[slot] || 0;
+              return (
+                <div key={slot} className={"ab" + (cd > 0.05 ? "" : " ready")}
+                  onMouseEnter={() => setTip(`<b>${def.name}</b>${slot === "dash" ? DASH_DESC : abilityDesc(def)}<div class="cd">Cooldown: ${def.cd ? def.cd + "s" : "—"}</div>`)}
+                  onMouseLeave={() => setTip(null)}>
+                  <span className="key">{def.key}</span><span className="emoji">{def.emoji}</span>
+                  {cd > 0.05 && <span className="cool">{cd.toFixed(1)}</span>}
+                </div>
+              );
+            })}
+          </div>
+          {tip && <div className="ability-tooltip" dangerouslySetInnerHTML={{ __html: tip }} />}
+
+          <div className="gear-bar">
+            {Array.from({ length: MAX_SLOTS }).map((_, i) => {
+              const s = p.slots[i];
+              if (!s) return <div key={i} className="gear-slot empty"><span className="gi">▫</span><span className="gn">Empty slot</span></div>;
+              const g = GEAR[s.id];
+              return (
+                <div key={i} className="gear-slot" style={s.t4 ? { borderColor: "var(--gold)" } : undefined}>
+                  <span className="gi">{g.emoji}</span>
+                  <span className="gn" dangerouslySetInnerHTML={{ __html: `${g.name}${s.t4 ? ' <b style="color:var(--gold)">T4</b>' : ""} <small>${s.t4 ? "pierces shields" : g.blurb[s.lvl - 1]}</small>` }} />
+                  <span className="pips">{[0, 1, 2].map((l) => <span key={l} className={"pip" + (l < s.lvl ? " on" : "")} />)}</span>
+                </div>
+              );
+            })}
+          </div>
+
+          {interact && !rp && <div className="interact-prompt" dangerouslySetInnerHTML={{ __html: interact }} />}
+
+          {rp && (
+            <div className="replace-prompt">
+              <div className="rp-head" dangerouslySetInnerHTML={{ __html: `Inventory full — replace which with <b style="color:${rp.t4 ? "var(--gold)" : GEAR[rp.id].color}">${GEAR[rp.id].emoji} ${GEAR[rp.id].name}${rp.t4 ? " T4" : rp.lvl > 1 ? " Lv" + rp.lvl : ""}</b>?` }} />
+              <div className="rp-slots">
+                {Array.from({ length: MAX_SLOTS }).map((_, i) => { const s = p.slots[i], sg = s ? GEAR[s.id] : null; return (
+                  <button key={i} className="rp-slot" onClick={() => game.doReplace(i)}><span className="rp-key">{i + 1}</span> {sg ? `${sg.emoji} ${sg.name} ${s.t4 ? "T4" : "Lv" + s.lvl}` : "Empty"}</button>
+                ); })}
+              </div>
+              <div className="rp-hint">Press 1–4 or tap · move away to cancel</div>
+            </div>
+          )}
+
+          {p.downed && <div className="downed-banner">DOWNED — a teammate can revive you</div>}
+        </>
+      )}
+
+      {/* team chat */}
+      <div id="chat">
+        <div className="chat-log">{game.chat.slice().map((c) => <div key={c.id} className={"chat-msg" + (c.mine ? " mine" : "")}><b>{c.name}:</b> {c.text}</div>)}</div>
+        {chatOpen && (
+          <input ref={chatRef} className="chat-input" maxLength={120} placeholder="Message your team…  (Enter to send · Esc to cancel)"
+            onKeyDown={(e) => { e.stopPropagation(); if (e.key === "Enter") submitChat(); else if (e.key === "Escape") setChatOpen(false); }} />
+        )}
+      </div>
+
+      {/* mobile controls */}
+      {game.mobile.on && (
+        <div id="mobileControls">
+          <div id="mobileButtons">
+            {mobileBtns.map(([key, label]) => (
+              <div key={key} className="mbtn"
+                onTouchStart={(e) => { e.preventDefault(); game.pressKey(key); }}
+                onTouchEnd={(e) => { e.preventDefault(); game.releaseKey(key); }}
+                onTouchCancel={(e) => { e.preventDefault(); game.releaseKey(key); }}>
+                <span className="mlabel">{label}</span>
+                {(key === "q" || key === "e" || key === "r" || key === " ") && (p.cd[key === " " ? "dash" : key] || 0) > 0.05 && <span className="cool">{(p.cd[key === " " ? "dash" : key]).toFixed(1)}</span>}
+              </div>
+            ))}
+            <div className="mbtn" onTouchStart={(e) => { e.preventDefault(); setChatOpen(true); setTimeout(() => chatRef.current?.focus(), 0); }}><span className="mlabel">💬</span></div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

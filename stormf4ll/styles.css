@@ -1,0 +1,146 @@
+// Hunter + Creep entities (ported from legacy game.js). They hold a back-ref
+// to the owning Game for shared state/helpers (game.phase, hunters, addFeed, …).
+import { GEAR, HUNTERS, CREEP_TYPES } from "./data";
+import { MAX_SLOTS, SPEED_SCALE, TAU, rand } from "./constants";
+import { Sfx } from "./Sfx";
+
+let UID = 1;
+export const resetUID = () => { UID = 1; };
+
+export class Hunter {
+  game: any;
+  id: number; hid: string; def: any;
+  team: number; isPlayer: boolean; name: string;
+  x = 0; y = 0; moveX = 0; moveY = 0; aim = 0;
+  maxHp: number; hp: number; shield = 0; radius: number; speed: number;
+  cd: any = { basic: 0, q: 0, e: 0, r: 0, dash: 0 };
+  alive = true; downed = false; bleed = 0; reviveProg = 0; reviving: any = null; dots: any[] = [];
+  snareStacks = 0; snareT = 0; threatT = 0; regenLockT = 0; stunT = 0;
+  form: string | null;
+  speedBuffT = 0; speedBuffMul = 1; dashVx = 0; dashVy = 0; dashT = 0;
+  kills = 0; hasCrown = false; walkT = 0;
+  slots: any[] = [];
+  aiTimer = 0; aiTarget: any = null; wander = rand(0, TAU); pingCd = 0; lootCd = 0;
+  // gear-derived
+  dmgMul = 1; abilityMul = 1; lifesteal = 0; maxShield = 0; dr = 0; atkSpeedMul = 1; shieldRegen = 0; trueDamage = false;
+  // runtime flags
+  human = false; controlledBy: string | null = null; _in: any = null; beingRevived = false;
+
+  constructor(game: any, hid: string, team: number, isPlayer: boolean, name: string) {
+    this.game = game;
+    const h = HUNTERS[hid];
+    this.id = UID++; this.hid = hid; this.def = h;
+    this.team = team; this.isPlayer = isPlayer; this.name = name;
+    this.maxHp = h.maxHp; this.hp = h.maxHp;
+    this.radius = h.radius; this.speed = h.speed * SPEED_SCALE;
+    this.form = h.forms ? h.defaultForm : null;
+    this.recomputeGear();
+  }
+
+  get effSpeed() { const snare = 1 - Math.min(0.5, this.snareStacks * 0.1); return this.speed * (this.speedBuffT > 0 ? this.speedBuffMul : 1) * snare; }
+  addSnare() { this.snareStacks = Math.min(5, this.snareStacks + 1); this.snareT = 2.5; }
+
+  recomputeGear() {
+    let dmg = 0, abil = 0, steal = 0, sh = 0, dr = 0, atk = 1, regen = 0, t4 = false;
+    for (const s of this.slots) {
+      const lv = GEAR[s.id].levels[s.lvl - 1];
+      dmg += lv.dmg || 0; abil += lv.abil || 0; steal = Math.max(steal, lv.steal || 0);
+      sh += lv.sh || 0; dr += lv.dr || 0; regen += lv.regen || 0; if (lv.atk) atk = Math.min(atk, lv.atk);
+      if (s.t4) t4 = true;
+    }
+    this.dmgMul = 1 + dmg; this.abilityMul = 1 + abil; this.lifesteal = steal;
+    this.maxShield = sh; this.dr = dr; this.atkSpeedMul = atk; this.shieldRegen = regen;
+    this.trueDamage = t4;
+    if (this.shield < this.maxShield) this.shield = this.maxShield;
+  }
+  equip(id: string, lvl = 1, t4 = false) {
+    const s = this.slots.find((x) => x.id === id);
+    let res;
+    if (s) { if (s.lvl < 3 || (t4 && !s.t4)) { s.lvl = Math.min(3, Math.max(s.lvl + 1, lvl)); if (t4) s.t4 = true; res = "up"; } else res = "max"; }
+    else {
+      if (this.slots.length < MAX_SLOTS) { this.slots.push({ id, lvl: Math.min(3, lvl), t4 }); res = "new"; }
+      else { let lo = this.slots[0]; for (const x of this.slots) if (x.lvl < lo.lvl) lo = x; lo.id = id; lo.lvl = Math.min(3, lvl); lo.t4 = t4; res = "swap"; }
+    }
+    this.recomputeGear();
+    return res;
+  }
+
+  addDot(dps: number, dur: number, src: any) {
+    const ex = this.dots.find((d) => d.src === src && d.dps === dps);
+    if (ex) ex.t = Math.max(ex.t, dur);
+    else if (this.dots.length < 8) this.dots.push({ dps, t: dur, src });
+  }
+  takeDamage(amt: number, src: any) {
+    const G = this.game;
+    if (!this.alive || G.phase !== "live") return;
+    amt *= 1 - this.dr;
+    const dealt = amt;
+    const bypass = src && src.trueDamage;
+    if (!bypass && this.shield > 0) { const a = Math.min(this.shield, amt); this.shield -= a; amt -= a; }
+    if (amt > 0) {
+      if (this.downed) { this.bleed -= amt * 0.04; if (this.bleed <= 0) this.die(src); }
+      else { this.hp -= amt; if (this.hp <= 0) { this.hp = 0; this.goDown(src); } }
+    }
+    if (src && src !== this && src.lifesteal > 0 && src.alive && !src.downed) src.hp = Math.min(src.maxHp, src.hp + dealt * src.lifesteal);
+    if (src && src.team >= 0 && src.team !== this.team) this.threatT = 6;
+    if (dealt > 0) this.regenLockT = 5;
+  }
+  goDown(src: any) {
+    const G = this.game;
+    const matesUp = G.hunters.some((o: any) => o.team === this.team && o !== this && o.alive && !o.downed);
+    if (!matesUp) { this.die(src); return; }
+    this.downed = true; this.bleed = 12; this.shield = 0;
+    Sfx.down(G.volAt(this.x, this.y));
+    G.addFeed(`${src ? src.name : "Storm"} downed ${this.name}`);
+  }
+  die(src: any) {
+    const G = this.game;
+    if (!this.alive) return;
+    this.alive = false; this.downed = false;
+    if (src && src !== this) src.kills++;
+    Sfx.kill(G.volAt(this.x, this.y));
+    G.addFeed(`${src && src !== this ? src.name : "The Storm"} eliminated ${this.name}`);
+    G.spawnBurst(this.x, this.y, this.def.color, 24);
+    for (const s of this.slots) { const a = rand(0, TAU), d = rand(20, 55); G.dropItem(s.id, s.lvl, this.x + Math.cos(a) * d, this.y + Math.sin(a) * d, s.t4); }
+    this.slots = [];
+    if (this.hasCrown && src && src.team >= 0) { this.hasCrown = false; src.hasCrown = true; }
+  }
+  reviveTo() {
+    const G = this.game;
+    this.downed = false; this.hp = this.maxHp * 0.4; this.bleed = 0; this.reviveProg = 0; this.dots = [];
+    Sfx.revive(G.volAt(this.x, this.y)); G.addFeed(`${this.name} was revived`);
+  }
+}
+
+export class Creep {
+  game: any; id: number; type: string; cfg: any; team = -1;
+  x: number; y: number; spawnX: number; spawnY: number;
+  maxHp: number; hp: number; radius: number; color: string; name: string;
+  alive = true; atkCd = 0; wander = rand(0, TAU); wt = rand(1, 3);
+  kills = 0; bob = rand(0, TAU); flash = 0; drops: any[] = [];
+
+  constructor(game: any, type: string, x: number, y: number) {
+    this.game = game;
+    const c = CREEP_TYPES[type];
+    this.id = UID++; this.type = type; this.cfg = c;
+    this.x = x; this.y = y; this.spawnX = x; this.spawnY = y;
+    this.maxHp = c.hp; this.hp = c.hp; this.radius = c.r; this.color = c.color; this.name = c.name;
+  }
+  takeDamage(amt: number, src: any) {
+    const G = this.game;
+    if (!this.alive || G.phase !== "live") return;
+    this.hp -= amt; this.flash = 0.12;
+    if (this.hp <= 0) { this.hp = 0; this.die(src); }
+  }
+  die(src: any) {
+    const G = this.game;
+    if (!this.alive) return; this.alive = false;
+    G.spawnBurst(this.x, this.y, this.color, this.type === "boss" ? 70 : 24);
+    G.spawnRing(this.x, this.y, this.radius * 3, this.color);
+    for (const d of this.drops) { const a = rand(0, TAU), r = rand(20, this.radius + 40); G.dropItem(d.id, d.lvl, this.x + Math.cos(a) * r, this.y + Math.sin(a) * r, d.t4); }
+    if (src && src.kills != null) src.kills++;
+    if (this.type === "boss") { G.addFeed("💀 The Storm Titan falls — Tier-4 gear drops!"); Sfx.victory(); }
+    else if (this.type === "miniboss") G.addFeed(`${src ? src.name : "Someone"} slew a Mini-Boss`);
+    Sfx.kill(G.volAt(this.x, this.y));
+  }
+}
