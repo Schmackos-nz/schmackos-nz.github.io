@@ -202,3 +202,25 @@ body.mobile .gear-slot{min-width:120px;padding:4px 7px}
   background:rgba(8,12,22,.95);color:var(--text);border-radius:9px;font-size:13px;font-family:inherit}
 .chat-hint{font-size:11px;color:var(--muted);background:rgba(8,12,22,.5);border-radius:5px;padding:2px 6px;align-self:flex-start}
 body.mobile #chat{bottom:200px}
+
+/* ---------- replace prompt ---------- */
+.replace-prompt{position:absolute;bottom:96px;left:50%;transform:translateX(-50%);
+  background:rgba(8,12,22,.95);border:1px solid var(--accent);border-radius:12px;
+  padding:10px 14px;text-align:center;pointer-events:auto;z-index:6;max-width:92vw}
+.replace-prompt .rp-head{font-size:13px;margin-bottom:8px}
+.replace-prompt .rp-slots{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.rp-slot{position:relative;background:var(--panel2);border:1px solid rgba(255,255,255,.15);
+  color:var(--text);border-radius:9px;padding:8px 12px 8px 24px;font-size:12px;font-weight:600}
+.rp-slot:hover{border-color:var(--accent)}
+.rp-slot .rp-key{position:absolute;left:6px;top:50%;transform:translateY(-50%);
+  background:var(--accent);color:#03121a;border-radius:5px;width:15px;height:15px;
+  display:grid;place-items:center;font-size:10px;font-weight:800}
+.replace-prompt .rp-hint{font-size:10px;color:var(--muted);margin-top:7px}
+
+/* ---------- shield indicator (above action bar) ---------- */
+.shield-ind{position:absolute;bottom:88px;left:50%;transform:translateX(-50%);
+  display:flex;align-items:center;gap:7px;background:rgba(8,12,22,.7);
+  border-radius:8px;padding:3px 10px;font-size:12px;font-weight:700;color:#34e3ff}
+.shield-ind .sbar{width:120px;height:7px;background:#0c1322;border-radius:4px;overflow:hidden}
+.shield-ind .sbar i{display:block;height:100%;background:linear-gradient(90deg,#34e3ff,#7af0ff)}
+body.mobile .shield-ind{bottom:auto;top:90px}

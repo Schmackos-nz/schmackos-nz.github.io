@@ -51,8 +51,8 @@ const HUNTERS = {
     maxHp:360, speed:205, radius:21,
     desc:'Front-line bruiser. A wide cleave, dashes into the fray, slams the ground and shrugs off hits with a barrier.',
     basic:{ key:'LMB', name:'Cleave', emoji:'⚔️', cd:0.48, kind:'cone', dmg:32, range:165, arc:2.0, snare:true },
-    q:{ key:'Q', name:'Skewer', emoji:'➹', cd:6, kind:'dash', dmg:55, range:300, hitRange:95, arc:1.6 },
-    e:{ key:'E', name:'Bulwark', emoji:'🛡️', cd:9, kind:'shield', amount:170, dur:5 },
+    q:{ key:'Q', name:'Skewer', emoji:'➹', cd:6, kind:'dash', dmg:55, range:300, hitRange:95, arc:1.6, stun:0.6 },
+    e:{ key:'E', name:'Bulwark', emoji:'🛡️', cd:9, kind:'shield', amount:100, dur:3 },
     r:{ key:'R', name:'Seismic Slam', emoji:'💥', cd:22, kind:'aoe', dmg:120, radius:240, delay:0.45, self:true }
   },
   sable: {
@@ -71,7 +71,7 @@ const HUNTERS = {
     basic:{ key:'LMB', name:'Ember', emoji:'🔥', cd:0.6, kind:'proj', dmg:30, speed:580, range:560, radius:9 },
     q:{ key:'Q', name:'Firebomb', emoji:'☄️', cd:6, kind:'aoe', dmg:70, radius:150, delay:0.5, atCursor:true },
     e:{ key:'E', name:'Blink', emoji:'🌀', cd:7, kind:'blink', range:360 },
-    r:{ key:'R', name:'Meteor Storm', emoji:'🌠', cd:24, kind:'storm', dmg:65, radius:130, count:6, spread:250 }
+    r:{ key:'R', name:'Meteor Storm', emoji:'🌠', cd:24, kind:'storm', dmg:75, radius:130, count:3, spread:250 }
   },
   lumen: {
     name:'Lumen', emoji:'✨', color:'#34e3ff', role:'Support', weapon:'staff',
@@ -147,7 +147,7 @@ function abilityDesc(def){
     case 'burst': return `Looses ${d.count} bolts in a spread, <b>${d.dmg}</b> each.`;
     case 'dotaoe':return `Curses an area: <b>${d.dmg}</b> on impact, then <b>${d.dot.dps}</b>/s for ${d.dot.dur}s to everyone caught.`;
     case 'cone':  return `Cleaves enemies in front for <b>${d.dmg}</b> damage.`+(d.snare?` Snares hits <b>−10%</b> move speed (stacks to −50%).`:'');
-    case 'dash':  return d.dmg>0 ? `Dashes forward, striking for <b>${d.dmg}</b> damage.` : `Quick evasive dash in your aim direction.`;
+    case 'dash':  return (d.dmg>0 ? `Dashes forward, striking for <b>${d.dmg}</b> damage.` : `Quick evasive dash in your aim direction.`)+(d.stun?` Briefly <b>stuns</b> the target.`:'');
     case 'blink': return `Teleports instantly to your cursor.`;
     case 'shield':return `Gain a <b>${d.amount}</b>-point shield for ${d.dur}s.`;
     case 'aoe':   return `Calls a blast ${d.atCursor?'at your cursor':'around you'} dealing <b>${d.dmg}</b> in an area.`;
@@ -528,7 +528,7 @@ class Hunter {
     this.radius=h.radius; this.speed=h.speed*SPEED_SCALE;
     this.cd={ basic:0,q:0,e:0,r:0,dash:0 };
     this.alive=true; this.downed=false; this.bleed=0; this.reviveProg=0; this.reviving=null; this.dots=[];
-    this.snareStacks=0; this.snareT=0; this.threatT=0; this.regenLockT=0;
+    this.snareStacks=0; this.snareT=0; this.threatT=0; this.regenLockT=0; this.stunT=0;
     this.form = h.forms ? h.defaultForm : null;
     this.speedBuffT=0; this.speedBuffMul=1; this.dashVx=0; this.dashVy=0; this.dashT=0;
     this.kills=0; this.hasCrown=false; this.walkT=0;
@@ -757,7 +757,7 @@ function chooseLanding(ev){
 //  ABILITIES
 // ============================================================
 function cast(ent, slot){
-  if (!ent.alive || ent.downed) return false;       // no attacking while downed or dead
+  if (!ent.alive || ent.downed || ent.stunT>0) return false;   // no acting while downed/dead/stunned
   const def = abilityOf(ent, slot);
   if (ent.cd[slot] > 0) return false;
   ent.cd[slot] = def.cd * (slot==='basic' ? ent.atkSpeedMul : 1);
@@ -813,7 +813,7 @@ function fireProj(ent,def,ang,dmg){
 function coneHit(ent,def,dmg){
   const inArc=o=>dist(o.x,o.y,ent.x,ent.y)<=def.range+o.radius && Math.abs(angDiff(angTo(ent.x,ent.y,o.x,o.y),ent.aim))<=def.arc/2;
   G.hunters.forEach(o=>{ if(o.team===ent.team||!o.alive) return;
-    if (inArc(o)){ o.takeDamage(dmg,ent); if(def.snare) o.addSnare(); spawnBurst(o.x,o.y,'#fff',6); Sfx.hit(volAt(o.x,o.y)); }});
+    if (inArc(o)){ o.takeDamage(dmg,ent); if(def.snare) o.addSnare(); if(def.stun) o.stunT=Math.max(o.stunT||0,def.stun); spawnBurst(o.x,o.y,'#fff',6); Sfx.hit(volAt(o.x,o.y)); }});
   if (ent.team>=0) for(const c of G.creeps){ if(c.alive && inArc(c)){ c.takeDamage(dmg,ent); spawnBurst(c.x,c.y,'#fff',6); } }
 }
 function addAoe(ent,x,y,r,dmg,delay,dot){ G.aoes.push({x,y,r,dmg,team:ent.team,owner:ent,t:delay,max:delay,color:effColor(ent),dot:dot||null}); }
@@ -860,9 +860,18 @@ function controlPlayer(p, dt){
 
   // auto-revive a downed teammate you're standing near — no key needed
   const downAlly=G.hunters.find(o=>o.team===p.team&&o!==p&&o.downed&&dist(o.x,o.y,p.x,p.y)<110);
-  if (downAlly){ downAlly.reviveProg+=dt; p.reviving=downAlly; if(downAlly.reviveProg>=2.5) downAlly.reviveTo(); }
-  // F = equip nearby item (when not reviving)
-  else if (Input.keys.has('f')){ const item=nearestGroundItem(p,90); if (item){ equipItem(p,item); Input.keys.delete('f'); } }
+  if (downAlly){ downAlly.reviveProg+=dt; p.reviving=downAlly; if(downAlly.reviveProg>=2.5) downAlly.reviveTo(); G.replacePrompt=null; }
+  else {
+    tickReplacePrompt(p);
+    if (!G.replacePrompt && Input.keys.has('f')){
+      const item=nearestGroundItem(p,90);
+      if (item){ Input.keys.delete('f');
+        const owned=p.slots.find(x=>x.id===item.id);
+        if (!owned && p.slots.length>=MAX_SLOTS) G.replacePrompt={x:item.x,y:item.y,id:item.id,lvl:item.lvl,t4:item.t4};
+        else equipItem(p,item);
+      }
+    }
+  }
 }
 
 // difficulty helpers (apply to enemy squads; your allied AI stays Normal)
@@ -966,6 +975,24 @@ function equipItem(ent,it){
   if (ent.isPlayer){ const g=GEAR[it.id]; const s=ent.slots.find(x=>x.id===it.id);
     addFeed(`${res==='up'?'Upgraded':'Equipped'} ${g.name} ${s&&s.t4?'T4 (true damage!)':(s?'Lv'+s.lvl:'')} — ${g.blurb[(s?s.lvl:1)-1]}`); }
 }
+// ---- full-bar replace chooser ----
+function itemNear(x,y,r){ let best=null,bd=r*r; for(const it of G.items){ const d=dist2(x,y,it.x,it.y); if(d<bd){bd=d;best=it;} } return best; }
+function doReplace(slotIndex){
+  const rp=G.replacePrompt; if(!rp||slotIndex<0||slotIndex>=MAX_SLOTS) return;
+  if (NETROLE==='client'){ Net.toHost({t:'replace', slot:slotIndex}); G.replacePrompt=null; return; }
+  const p=G.player, it=itemNear(rp.x,rp.y,70);
+  if (it){ p.slots[slotIndex]={id:it.id, lvl:Math.min(3,it.lvl), t4:!!it.t4}; p.recomputeGear();
+    const i=G.items.indexOf(it); if(i>=0) G.items.splice(i,1);
+    Sfx.pickup(volAt(p.x,p.y)); spawnBurst(p.x,p.y, it.t4?'#ffd24a':GEAR[it.id].color,8);
+    addFeed(`Replaced slot ${slotIndex+1} with ${GEAR[it.id].name}`); }
+  G.replacePrompt=null;
+}
+function tickReplacePrompt(p){
+  if (!G.replacePrompt) return;
+  const rp=G.replacePrompt;
+  if (!p||!p.alive||p.downed||dist(p.x,p.y,rp.x,rp.y)>110||!itemNear(rp.x,rp.y,45)){ G.replacePrompt=null; return; }
+  for(let i=1;i<=MAX_SLOTS;i++) if(Input.keys.has(''+i)){ doReplace(i-1); Input.keys.delete(''+i); break; }
+}
 
 // ============================================================
 //  PINGS / EFFECTS
@@ -1044,7 +1071,8 @@ function update(dt){
     if (e.regenLockT>0) e.regenLockT-=dt;
     else if (!e.downed && e.hp<e.maxHp) e.hp=Math.min(e.maxHp, e.hp + e.maxHp*0.06*dt);
 
-    if (e.isPlayer) controlPlayer(e,dt);
+    if (e.stunT>0){ e.stunT-=dt; e.moveX=0; e.moveY=0; e.reviving=null; }   // stunned: no control
+    else if (e.isPlayer) controlPlayer(e,dt);
     else if (e.human) applyRemoteControl(e,dt);
     else controlAI(e,dt);
 
@@ -1246,12 +1274,34 @@ function updateHUD(){
       prompt.classList.remove('hidden');
     } else {
       const it=nearestGroundItem(p,90);
-      if (it){ const g=GEAR[it.id], owned=p.slots.find(x=>x.id===it.id);
-        prompt.innerHTML=`<b>F</b> ${owned?(owned.lvl<3?'Upgrade':'Max'):'Equip'} ${g.name}${it.t4?' T4':(it.lvl>1?' Lv'+it.lvl:'')}`;
+      if (it && !G.replacePrompt){ const g=GEAR[it.id], owned=p.slots.find(x=>x.id===it.id);
+        const full=p.slots.length>=MAX_SLOTS;
+        const verb = owned ? ((owned.lvl<3||(it.t4&&!owned.t4))?'Upgrade':'Owned') : (full?'Swap':'Equip');
+        prompt.innerHTML=`<b>F</b> ${verb} ${g.name}${it.t4?' T4':(it.lvl>1?' Lv'+it.lvl:'')}`;
         prompt.classList.remove('hidden'); }
       else prompt.classList.add('hidden');
     }
   } else prompt.classList.add('hidden');
+
+  // shield indicator above the action bar
+  const si=document.getElementById('shieldInd');
+  if (p.shield>0.5){ si.classList.remove('hidden');
+    document.getElementById('shieldVal').textContent=Math.ceil(p.shield);
+    document.getElementById('shieldFill').style.width=clamp(p.shield/Math.max(p.maxShield||0,p.shield,150)*100,0,100)+'%'; }
+  else si.classList.add('hidden');
+
+  // replace-slot chooser (inventory full)
+  const rpEl=document.getElementById('replacePrompt');
+  if (G.replacePrompt){
+    const rp=G.replacePrompt, g=GEAR[rp.id];
+    let html=`<div class="rp-head">Inventory full — replace which with <b style="color:${rp.t4?'var(--gold)':g.color}">${g.emoji} ${g.name}${rp.t4?' T4':(rp.lvl>1?' Lv'+rp.lvl:'')}</b>?</div><div class="rp-slots">`;
+    for(let i=0;i<MAX_SLOTS;i++){ const s=p.slots[i], sg=s?GEAR[s.id]:null;
+      html+=`<button class="rp-slot" data-i="${i}"><span class="rp-key">${i+1}</span> ${sg?`${sg.emoji} ${sg.name} ${s.t4?'T4':'Lv'+s.lvl}`:'Empty'}</button>`; }
+    html+=`</div><div class="rp-hint">Press 1–4 or tap · move away to cancel</div>`;
+    rpEl.innerHTML=html;
+    rpEl.querySelectorAll('.rp-slot').forEach(b=> b.onclick=()=>doReplace(+b.dataset.i));
+    rpEl.classList.remove('hidden');
+  } else rpEl.classList.add('hidden');
 
   document.getElementById('downedBanner').classList.toggle('hidden', !p.downed);
 }
@@ -1312,6 +1362,11 @@ function draw(){
     ctx.font='14px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillStyle='#fff'; ctx.fillText(g.emoji,sx,sy+bob+1);
     ctx.font='11px sans-serif'; ctx.fillStyle=col;
     ctx.fillText(g.name+(it.t4?' T4✦':(it.lvl>1?' Lv'+it.lvl:'')), sx, sy+bob-20);
+    // pickup indicator relative to you: ▲ upgrade · ⇄ swap (bar full)
+    const ps=G.player&&G.player.slots;
+    if (ps){ const own=ps.find(s=>s.id===it.id);
+      if (own){ if (own.lvl<3||(it.t4&&!own.t4)){ ctx.fillStyle='#46e08a'; ctx.font='bold 15px sans-serif'; ctx.fillText('▲', sx+16, sy+bob); } }
+      else if (ps.length>=MAX_SLOTS){ ctx.fillStyle='#ffd24a'; ctx.font='bold 14px sans-serif'; ctx.fillText('⇄', sx+16, sy+bob); } }
   }
 
   // aoes
@@ -1389,6 +1444,9 @@ function draw(){
     // snare shackle (Vanguard cleave)
     if (e.snareStacks>0){ ctx.beginPath(); ctx.arc(sx,sy+e.radius*0.55,e.radius*0.8,0.2,Math.PI-0.2);
       ctx.strokeStyle=`rgba(255,138,61,${0.4+e.snareStacks*0.12})`; ctx.lineWidth=2.5; ctx.stroke(); }
+    // stun (Vanguard skewer) — orbiting stars
+    if (e.stunT>0){ for(let k=0;k<3;k++){ const a=G.t*7+k*TAU/3; ctx.fillStyle='#ffe04a';
+      ctx.font='12px sans-serif'; ctx.textAlign='center'; ctx.fillText('✦', sx+Math.cos(a)*e.radius, sy-e.radius-8+Math.sin(a)*4); } }
     // shield ring
     if (e.shield>0){ ctx.beginPath(); ctx.arc(sx,sy,e.radius+6,0,TAU); ctx.strokeStyle='rgba(52,227,255,.8)'; ctx.lineWidth=3; ctx.stroke(); }
 
@@ -1600,6 +1658,12 @@ function netHostData(fromId, msg){
   } else if (msg.t==='chat'){
     addChatMsg(msg.name, msg.text);
     for (const id in Net.conns) if (id!==fromId) Net.send(id, {t:'chat', name:msg.name, text:msg.text});
+  } else if (msg.t==='replace'){
+    const h=G&&G.hunters&&G.hunters.find(x=>x.controlledBy===fromId);
+    if (h){ const it=nearestGroundItem(h,110);
+      if (it && !h.slots.find(s=>s.id===it.id) && h.slots.length>=MAX_SLOTS && msg.slot>=0 && msg.slot<MAX_SLOTS){
+        h.slots[msg.slot]={id:it.id, lvl:Math.min(3,it.lvl), t4:!!it.t4}; h.recomputeGear();
+        const i=G.items.indexOf(it); if(i>=0) G.items.splice(i,1); } }
   }
 }
 function netHostClose(id){
@@ -1633,12 +1697,13 @@ function applyRemoteControl(h, dt){
   if (inp.ping){ if(h.pingCd<=0){ addPing(inp.ping[0],inp.ping[1],h.team,h); h.pingCd=1; } inp.ping=null; }
   const ally=G.hunters.find(o=>o.team===h.team&&o!==h&&o.downed&&dist(o.x,o.y,h.x,h.y)<110);
   if (ally){ ally.reviveProg+=dt; h.reviving=ally; if(ally.reviveProg>=2.5) ally.reviveTo(); }   // auto-revive
-  else if (inp.act){ inp.act=false; const item=nearestGroundItem(h,90); if(item) equipItem(h,item); }
+  else if (inp.act){ inp.act=false; const item=nearestGroundItem(h,90);
+    if (item){ const owned=h.slots.find(s=>s.id===item.id); if(owned||h.slots.length<MAX_SLOTS) equipItem(h,item); } }
 }
 function encodeSnapshot(forId){
   const z=G.zone, H=[],P=[],A=[],I=[],PG=[];
   for (const e of G.hunters){ if(!e.alive) continue;
-    let fl=0; if(e.downed)fl|=1; if(e.hasCrown)fl|=2; if(e.snareStacks>0)fl|=4; if(e.dots.length)fl|=8; if(e.shield>0)fl|=16; if(e.form==='shadow')fl|=32;
+    let fl=0; if(e.downed)fl|=1; if(e.hasCrown)fl|=2; if(e.snareStacks>0)fl|=4; if(e.dots.length)fl|=8; if(e.shield>0)fl|=16; if(e.form==='shadow')fl|=32; if(e.stunT>0)fl|=64;
     H.push([e.id, hidIdx(e.hid), e.team, e.x|0, e.y|0, Math.round(e.aim*100), e.hp|0, e.maxHp|0, e.shield|0, Math.round((e.downed?e.bleed/12:1)*100), fl]);
   }
   for (const p of G.projectiles) P.push([p.x|0,p.y|0, p.radius, palIdx(p.color)]);
@@ -1698,7 +1763,7 @@ function clientApplySnapshot(snap){
     h.hid=HUNTER_IDS[a[1]]||'sable'; h.def=HUNTERS[h.hid]; h.radius=h.def.radius; h.team=a[2];
     h.aim=a[5]/100; h.hp=a[6]; h.maxHp=a[7]; h.shield=a[8]; h.bleed=(a[9]/100)*12;
     const fl=a[10];
-    h.downed=!!(fl&1); h.hasCrown=!!(fl&2); h.snareStacks=(fl&4)?3:0; h.dots=(fl&8)?[1]:[]; h.form=(fl&32)?'shadow':'holy';
+    h.downed=!!(fl&1); h.hasCrown=!!(fl&2); h.snareStacks=(fl&4)?3:0; h.dots=(fl&8)?[1]:[]; h.form=(fl&32)?'shadow':'holy'; h.stunT=(fl&64)?0.4:0;
     h.alive=true; h.reviving=null; h.isPlayer=(id===G.myHunterId);
     h.name = h.isPlayer?'You':((G.names&&G.names[id])||'Hunter');
     seen.add(id);
@@ -1722,7 +1787,13 @@ function clientSendInput(dt){
   const able = G.player && G.player.alive && !G.player.downed;   // can't attack while downed/dead
   // edge-detected ping (V) and interact (F)
   if (Input.keys.has('v')){ if(!clientVHeld){ clientVHeld=true; clientPing=[w.x|0,w.y|0]; Sfx.ping(1); } } else clientVHeld=false;
-  if (Input.keys.has('f')){ if(!clientFHeld){ clientFHeld=true; clientAct=true; } } else clientFHeld=false;
+  if (Input.keys.has('f')){ if(!clientFHeld){ clientFHeld=true;
+    const item=G.player&&!G.replacePrompt&&nearestGroundItem(G.player,90);
+    if (item && G.player.slots){ const owned=G.player.slots.find(x=>x.id===item.id);
+      if (!owned && G.player.slots.length>=MAX_SLOTS) G.replacePrompt={x:item.x,y:item.y,id:item.id,lvl:item.lvl,t4:item.t4};
+      else clientAct=true; }
+    else clientAct=true;
+  } } else clientFHeld=false;
   // optimistic local ability sounds (only when able to act)
   ['q','e','r',' '].forEach(k=>{ const down=Input.keys.has(k);
     if (able && down && !clientEdge[k]){ clientEdge[k]=true; (k===' '?Sfx.dash:Sfx.cast)(0.7); } else if(!down) clientEdge[k]=false; });
@@ -1738,6 +1809,7 @@ function clientSendInput(dt){
 function clientTick(dt){
   G.t+=dt;
   clientSendInput(dt);
+  tickReplacePrompt(G.player);
   for (const h of G.hunters){
     const moving = h.tx!==undefined && dist(h.x,h.y,h.tx,h.ty)>0.5;
     if (h.tx!==undefined){ h.x=lerp(h.x,h.tx,clamp(dt*16,0,1)); h.y=lerp(h.y,h.ty,clamp(dt*16,0,1)); }
