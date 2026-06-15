@@ -22,8 +22,8 @@ button{cursor:pointer;font-family:inherit}
 .menu-inner{position:relative;max-width:980px;margin:0 auto;height:100%;
   display:flex;flex-direction:column;align-items:center;justify-content:center;
   padding:24px;gap:14px;overflow-y:auto}
-.title{font-size:clamp(48px,9vw,92px);font-weight:900;letter-spacing:6px;
-  text-shadow:0 0 30px rgba(52,227,255,.5)}
+.title{font-size:clamp(30px,5vw,56px);font-weight:900;letter-spacing:3px;margin-bottom:-2px;
+  text-shadow:0 0 24px rgba(52,227,255,.5)}
 .title span{color:var(--accent)}
 .tagline{color:var(--muted);margin-top:-8px}
 .crown-banner{display:flex;align-items:center;gap:10px;background:linear-gradient(90deg,rgba(255,210,74,.18),rgba(255,210,74,.04));
