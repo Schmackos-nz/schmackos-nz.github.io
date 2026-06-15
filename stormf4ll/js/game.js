@@ -28,6 +28,17 @@ const SQUADS = 32;            // keeps player density ~constant on the bigger ma
 const SQUAD_SIZE = 3;
 const SPEED_SCALE = 0.82;     // slower, more tactical pacing
 const MAX_SLOTS = 4;
+const VISION = 1200;          // fog-of-war sight radius per squad member
+const BOSS_TRIGGER = 20;      // Storm Titan boss appears when <= this many hunters remain
+
+// neutral PvE creeps that drop gear when killed
+const CREEP_TYPES = {
+  little:   { hp:55,   r:15, dmg:6,  speed:60, aggro:240, color:'#9bd36b', name:'Creep' },
+  leader:   { hp:140,  r:21, dmg:11, speed:52, aggro:300, color:'#6bd3a0', name:'Pack Alpha' },
+  miniboss: { hp:600,  r:31, dmg:18, speed:46, aggro:380, color:'#d36b9b', name:'Mini-Boss' },
+  boss:     { hp:3000, r:54, dmg:34, speed:40, aggro:700, color:'#ff5a5a', name:'Storm Titan' },
+};
+const CREEP_IDS = Object.keys(CREEP_TYPES);
 
 // Shadow Priest tuning: a faint long DoT, and a burst that detonates for 400% of it.
 const SHADOW_DOT = { dps:5, dur:8 };
@@ -517,7 +528,7 @@ class Hunter {
     this.radius=h.radius; this.speed=h.speed*SPEED_SCALE;
     this.cd={ basic:0,q:0,e:0,r:0,dash:0 };
     this.alive=true; this.downed=false; this.bleed=0; this.reviveProg=0; this.reviving=null; this.dots=[];
-    this.snareStacks=0; this.snareT=0;
+    this.snareStacks=0; this.snareT=0; this.threatT=0; this.regenLockT=0;
     this.form = h.forms ? h.defaultForm : null;
     this.speedBuffT=0; this.speedBuffMul=1; this.dashVx=0; this.dashVy=0; this.dashT=0;
     this.kills=0; this.hasCrown=false; this.walkT=0;
@@ -531,23 +542,25 @@ class Hunter {
   addSnare(){ this.snareStacks = Math.min(5, this.snareStacks+1); this.snareT = 2.5; }
 
   recomputeGear(){
-    let dmg=0, abil=0, steal=0, sh=0, dr=0, atk=1, regen=0;
+    let dmg=0, abil=0, steal=0, sh=0, dr=0, atk=1, regen=0, t4=false;
     for (const s of this.slots){
       const lv=GEAR[s.id].levels[s.lvl-1];
       dmg+=lv.dmg||0; abil+=lv.abil||0; steal=Math.max(steal,lv.steal||0);
       sh+=lv.sh||0; dr+=lv.dr||0; regen+=lv.regen||0; if(lv.atk) atk=Math.min(atk,lv.atk);
+      if (s.t4) t4=true;
     }
     this.dmgMul=1+dmg; this.abilityMul=1+abil; this.lifesteal=steal;
     this.maxShield=sh; this.dr=dr; this.atkSpeedMul=atk; this.shieldRegen=regen;
+    this.trueDamage=t4;                       // Tier-4 gear: damage pierces shields
     if (this.shield < this.maxShield) this.shield = this.maxShield;
   }
-  equip(id, lvl=1){
+  equip(id, lvl=1, t4=false){
     const s = this.slots.find(x=>x.id===id);
     let res;
-    if (s){ if (s.lvl<3){ s.lvl=Math.min(3, Math.max(s.lvl+1, lvl)); res='up'; } else res='max'; }
+    if (s){ if (s.lvl<3 || (t4 && !s.t4)){ s.lvl=Math.min(3, Math.max(s.lvl+1, lvl)); if(t4)s.t4=true; res='up'; } else res='max'; }
     else {
-      if (this.slots.length<MAX_SLOTS){ this.slots.push({id, lvl:Math.min(3,lvl)}); res='new'; }
-      else { let lo=this.slots[0]; for(const x of this.slots) if(x.lvl<lo.lvl) lo=x; lo.id=id; lo.lvl=Math.min(3,lvl); res='swap'; }
+      if (this.slots.length<MAX_SLOTS){ this.slots.push({id, lvl:Math.min(3,lvl), t4}); res='new'; }
+      else { let lo=this.slots[0]; for(const x of this.slots) if(x.lvl<lo.lvl) lo=x; lo.id=id; lo.lvl=Math.min(3,lvl); lo.t4=t4; res='swap'; }
     }
     this.recomputeGear();
     return res;
@@ -562,13 +575,16 @@ class Hunter {
     if (!this.alive || (G && G.phase!=='live')) return;   // invulnerable until the drop completes
     amt *= (1 - this.dr);
     const dealt = amt;
-    if (this.shield>0){ const a=Math.min(this.shield,amt); this.shield-=a; amt-=a; }
+    const bypass = src && src.trueDamage;     // Tier-4 attacker pierces shields
+    if (!bypass && this.shield>0){ const a=Math.min(this.shield,amt); this.shield-=a; amt-=a; }
     if (amt>0){
       if (this.downed){ this.bleed -= amt*0.04; if(this.bleed<=0) this.die(src); }
       else { this.hp-=amt; if(this.hp<=0){ this.hp=0; this.goDown(src); } }
     }
     if (src && src!==this && src.lifesteal>0 && src.alive && !src.downed)
       src.hp=Math.min(src.maxHp, src.hp+dealt*src.lifesteal);
+    if (src && src.team>=0 && src.team!==this.team) this.threatT=6;   // retaliate when attacked
+    if (dealt>0) this.regenLockT=5;                                   // out-of-combat regen pauses
   }
   goDown(src){
     const matesUp = G.hunters.some(o=>o.team===this.team && o!==this && o.alive && !o.downed);
@@ -587,13 +603,41 @@ class Hunter {
     // drop all equipped gear on the ground
     for (const s of this.slots){
       const a=rand(0,TAU), d=rand(20,55);
-      dropItem(s.id, s.lvl, this.x+Math.cos(a)*d, this.y+Math.sin(a)*d);
+      dropItem(s.id, s.lvl, this.x+Math.cos(a)*d, this.y+Math.sin(a)*d, s.t4);
     }
     this.slots=[];
-    if (this.hasCrown && src){ this.hasCrown=false; src.hasCrown=true; }
+    if (this.hasCrown && src && src.team>=0){ this.hasCrown=false; src.hasCrown=true; }
   }
   reviveTo(){ this.downed=false; this.hp=this.maxHp*0.4; this.bleed=0; this.reviveProg=0; this.dots=[];
     Sfx.revive(volAt(this.x,this.y)); addFeed(`${this.name} was revived`); }
+}
+
+// ---------- neutral creeps (PvE loot) ----------
+class Creep {
+  constructor(type, x, y){
+    const c=CREEP_TYPES[type];
+    this.id=UID++; this.type=type; this.cfg=c; this.team=-1;
+    this.x=x; this.y=y; this.spawnX=x; this.spawnY=y;
+    this.maxHp=c.hp; this.hp=c.hp; this.radius=c.r; this.color=c.color; this.name=c.name;
+    this.alive=true; this.atkCd=0; this.wander=rand(0,TAU); this.wt=rand(1,3);
+    this.kills=0; this.bob=rand(0,TAU); this.flash=0; this.drops=[];
+  }
+  takeDamage(amt, src){
+    if (!this.alive || (G && G.phase!=='live')) return;
+    this.hp-=amt; this.flash=0.12;
+    if (this.hp<=0){ this.hp=0; this.die(src); }
+  }
+  die(src){
+    if (!this.alive) return; this.alive=false;
+    spawnBurst(this.x,this.y,this.color, this.type==='boss'?70:24);
+    spawnRing(this.x,this.y, this.radius*3, this.color);
+    for (const d of this.drops){ const a=rand(0,TAU), r=rand(20,this.radius+40);
+      dropItem(d.id, d.lvl, this.x+Math.cos(a)*r, this.y+Math.sin(a)*r, d.t4); }
+    if (src && src.kills!=null) src.kills++;
+    if (this.type==='boss'){ addFeed('💀 The Storm Titan falls — Tier-4 gear drops!'); Sfx.victory(); }
+    else if (this.type==='miniboss') addFeed(`${src?src.name:'Someone'} slew a Mini-Boss`);
+    Sfx.kill(volAt(this.x,this.y));
+  }
 }
 
 // ============================================================
@@ -636,8 +680,9 @@ function startMatch(){
   G.cam.x=G.player.x-canvas.width/2; G.cam.y=G.player.y-canvas.height/2;
   netHostAssign();
 
-  const itemCount=Math.floor(WORLD*WORLD/900000);
-  for (let i=0;i<itemCount;i++) spawnItem();
+  // creeps are the loot source — no random gear scatter anymore
+  G.creeps=[]; G.bossSpawned=false;
+  spawnCreeps();
 
   for (let i=0;i<60;i++) G.motes.push({x:rand(0,canvas.width),y:rand(0,canvas.height),
     vx:rand(-8,8),vy:rand(-14,-3),r:rand(0.6,2),a:rand(0.1,0.4)});
@@ -648,12 +693,37 @@ function startMatch(){
   if (!loopStarted){ loopStarted=true; requestAnimationFrame(loop); }
 }
 
-function spawnItem(x,y,id,lvl){
-  id = id || GEAR_IDS[randi(0,GEAR_IDS.length-1)];
-  if (x===undefined){ const a=rand(0,TAU), r=rand(0,WORLD*0.46); x=WORLD/2+Math.cos(a)*r; y=WORLD/2+Math.sin(a)*r; }
-  G.items.push({ id, lvl:lvl||1, x, y, bob:rand(0,TAU) });
+function dropItem(id,lvl,x,y,t4){ id=id||GEAR_IDS[randi(0,GEAR_IDS.length-1)];
+  G.items.push({ id, lvl, t4:!!t4, x:clamp(x,20,WORLD-20), y:clamp(y,20,WORLD-20), bob:rand(0,TAU) }); }
+const randGear=()=>GEAR_IDS[randi(0,GEAR_IDS.length-1)];
+
+// ---- creep spawning ----
+function addCreep(type,x,y,drops){ const c=new Creep(type,clamp(x,80,WORLD-80),clamp(y,80,WORLD-80)); c.drops=drops||[]; G.creeps.push(c); return c; }
+function spawnCreeps(){
+  const A=WORLD*WORLD;
+  // lone little creeps — drop 1 unupgraded piece each
+  const littles=Math.floor(A/3000000);
+  for (let i=0;i<littles;i++){ const a=rand(0,TAU), r=rand(0,WORLD*0.46);
+    addCreep('little', WORLD/2+Math.cos(a)*r, WORLD/2+Math.sin(a)*r, [{id:randGear(),lvl:1}]); }
+  // big packs — several little + an alpha that drops a 2/3 piece
+  const packs=Math.floor(A/14000000);
+  for (let i=0;i<packs;i++){
+    const a=rand(0,TAU), r=rand(WORLD*0.1,WORLD*0.44), cx=WORLD/2+Math.cos(a)*r, cy=WORLD/2+Math.sin(a)*r;
+    for (let k=0;k<randi(4,6);k++) addCreep('little', cx+rand(-120,120), cy+rand(-120,120), [{id:randGear(),lvl:1}]);
+    addCreep('leader', cx+rand(-40,40), cy+rand(-40,40), [{id:randGear(),lvl:1},{id:randGear(),lvl:2}]);
+  }
+  // mini-bosses — drop 1-2 maxed (3/3) pieces
+  const minis=Math.max(2,Math.floor(A/40000000));
+  for (let i=0;i<minis;i++){ const a=rand(0,TAU), r=rand(WORLD*0.15,WORLD*0.42);
+    const drops=[]; for(let k=0;k<randi(1,2);k++) drops.push({id:randGear(),lvl:3});
+    addCreep('miniboss', WORLD/2+Math.cos(a)*r, WORLD/2+Math.sin(a)*r, drops); }
 }
-function dropItem(id,lvl,x,y){ G.items.push({ id, lvl, x:clamp(x,20,WORLD-20), y:clamp(y,20,WORLD-20), bob:rand(0,TAU) }); }
+function spawnBoss(){
+  const drops=[]; for(let k=0;k<randi(1,2);k++) drops.push({id:randGear(),lvl:3,t4:true});
+  const b=addCreep('boss', G.zone.cx+rand(-60,60), G.zone.cy+rand(-60,60), drops);
+  G.bossSpawned=true; addFeed('☠ THE STORM TITAN HAS AWOKEN at the centre!'); Sfx.zone();
+  return b;
+}
 
 // ---- deploy / landing ----
 function dropSquads(){
@@ -683,6 +753,7 @@ function chooseLanding(ev){
 //  ABILITIES
 // ============================================================
 function cast(ent, slot){
+  if (!ent.alive || ent.downed) return false;       // no attacking while downed or dead
   const def = abilityOf(ent, slot);
   if (ent.cd[slot] > 0) return false;
   ent.cd[slot] = def.cd * (slot==='basic' ? ent.atkSpeedMul : 1);
@@ -736,9 +807,10 @@ function fireProj(ent,def,ang,dmg){
     radius:def.radius*1.45, life:def.range/def.speed, pierce:!!def.pierce, color:effColor(ent), hits:new Set(), dot:def.dot||null });
 }
 function coneHit(ent,def,dmg){
+  const inArc=o=>dist(o.x,o.y,ent.x,ent.y)<=def.range+o.radius && Math.abs(angDiff(angTo(ent.x,ent.y,o.x,o.y),ent.aim))<=def.arc/2;
   G.hunters.forEach(o=>{ if(o.team===ent.team||!o.alive) return;
-    if (dist(o.x,o.y,ent.x,ent.y)<=def.range+o.radius && Math.abs(angDiff(angTo(ent.x,ent.y,o.x,o.y),ent.aim))<=def.arc/2){
-      o.takeDamage(dmg,ent); if(def.snare) o.addSnare(); spawnBurst(o.x,o.y,'#fff',6); Sfx.hit(volAt(o.x,o.y)); }});
+    if (inArc(o)){ o.takeDamage(dmg,ent); if(def.snare) o.addSnare(); spawnBurst(o.x,o.y,'#fff',6); Sfx.hit(volAt(o.x,o.y)); }});
+  if (ent.team>=0) for(const c of G.creeps){ if(c.alive && inArc(c)){ c.takeDamage(dmg,ent); spawnBurst(c.x,c.y,'#fff',6); } }
 }
 function addAoe(ent,x,y,r,dmg,delay,dot){ G.aoes.push({x,y,r,dmg,team:ent.team,owner:ent,t:delay,max:delay,color:effColor(ent),dot:dot||null}); }
 
@@ -796,6 +868,10 @@ function isEnemyAI(e){ return e.team!==G.player.team; }
 function aimErr(e){ if(!isEnemyAI(e)) return 0.05; return G.diff==='easy'?0.24 : G.diff==='hard'?0.015 : 0.05; }
 function lootRange(e){ if(!isEnemyAI(e)) return 1100; return G.diff==='easy'?500 : G.diff==='hard'?2000 : 1100; }
 function gearCap(e){ return (isEnemyAI(e) && G.diff==='easy') ? 1 : 3; }   // easy enemies don't upgrade
+function engageRange(e){ // easy enemies don't seek players early — but still fight back when attacked
+  if (isEnemyAI(e) && G.diff==='easy' && G.zone.stage<2 && e.threatT<=0) return 300;
+  return G.diff==='hard' ? 900 : 820;
+}
 
 function controlAI(e, dt){
   e.moveX=0; e.moveY=0; e.reviving=null;
@@ -822,7 +898,7 @@ function controlAI(e, dt){
     gx=downAlly.x; gy=downAlly.y;
     if (dad<80){ downAlly.reviveProg+=dt; e.reviving=downAlly; if(downAlly.reviveProg>=2.8) downAlly.reviveTo(); }
   }
-  else if (foe && fd<820){
+  else if (foe && fd < engageRange(e)){
     fight=true; e.aiTarget=foe;
     const ranged=abilityOf(e,'basic').kind==='proj'; const ideal=ranged?340:64;
     const a=angTo(e.x,e.y,foe.x,foe.y); const err=aimErr(e); e.aim=a+rand(-err,err);
@@ -836,8 +912,17 @@ function controlAI(e, dt){
     if (abilityOf(e,'q').kind==='heal'||abilityOf(e,'e').kind==='speed'){ cast(e,'q'); cast(e,'e'); }
   }
   else {
+    // grab dropped gear first, otherwise farm a creep, otherwise roam toward centre
     const item=nearestNeededItem(e);
-    if (item){ gx=item.x; gy=item.y; if(dist(e.x,e.y,item.x,item.y)<32 && e.lootCd<=0){ equipItem(e,item); e.lootCd=0.5; } }
+    const cr = (!item || dist2(e.x,e.y,item.x,item.y)>360*360) ? nearestCreep(e, lootRange(e)) : null;
+    if (item && dist(e.x,e.y,item.x,item.y)<280){ gx=item.x; gy=item.y; if(dist(e.x,e.y,item.x,item.y)<32 && e.lootCd<=0){ equipItem(e,item); e.lootCd=0.5; } }
+    else if (cr && (cr.type!=='boss' || e.team===G.player.team)){      // AI farms creeps; only your squad rushes the boss
+      fight=true; const a=angTo(e.x,e.y,cr.x,cr.y); const err=aimErr(e); e.aim=a+rand(-err,err);
+      const reach=e.radius+cr.radius+(abilityOf(e,'basic').kind==='proj'?260:30);
+      if (dist(e.x,e.y,cr.x,cr.y)>reach){ gx=cr.x; gy=cr.y; }
+      cast(e,'basic'); cast(e,'q');
+    }
+    else if (item){ gx=item.x; gy=item.y; if(dist(e.x,e.y,item.x,item.y)<32 && e.lootCd<=0){ equipItem(e,item); e.lootCd=0.5; } }
     else {
       if (e.aiTimer<=0){ e.wander=rand(0,TAU); e.aiTimer=rand(2,4); }
       gx=clamp(e.x+Math.cos(e.wander)*260,150,WORLD-150);
@@ -866,16 +951,17 @@ function nearestNeededItem(e){ let best=null,bd=1e18;
   return Math.sqrt(bd)<lootRange(e)?best:null; }
 function aiNeedsItem(e,it){ const s=e.slots.find(x=>x.id===it.id);
   const cap=gearCap(e);
-  if (!s) return cap>=1;                    // new item — grab it (easy enemies still grab one)
+  if (it.t4 && cap>=3) return !s || !s.t4;   // tier-4 true-damage gear is always wanted
+  if (!s) return cap>=1;                      // new item — grab it (easy enemies still grab one)
   return s.lvl<cap || (it.lvl>s.lvl && s.lvl<cap);
 }
 function equipItem(ent,it){
-  const res=ent.equip(it.id, it.lvl);
+  const res=ent.equip(it.id, it.lvl, it.t4);
   const i=G.items.indexOf(it); if(i>=0) G.items.splice(i,1);
   if (res==='max') return;
-  Sfx.pickup(volAt(ent.x,ent.y)); spawnBurst(ent.x,ent.y,GEAR[it.id].color,8);
+  Sfx.pickup(volAt(ent.x,ent.y)); spawnBurst(ent.x,ent.y, it.t4?'#ffd24a':GEAR[it.id].color,8);
   if (ent.isPlayer){ const g=GEAR[it.id]; const s=ent.slots.find(x=>x.id===it.id);
-    addFeed(`${res==='up'?'Upgraded':'Equipped'} ${g.name} ${s?'Lv'+s.lvl:''} — ${g.blurb[(s?s.lvl:1)-1]}`); }
+    addFeed(`${res==='up'?'Upgraded':'Equipped'} ${g.name} ${s&&s.t4?'T4 (true damage!)':(s?'Lv'+s.lvl:'')} — ${g.blurb[(s?s.lvl:1)-1]}`); }
 }
 
 // ============================================================
@@ -940,11 +1026,15 @@ function update(dt){
     for (const k in e.cd) if (e.cd[k]>0) e.cd[k]-=dt;
     if (e.speedBuffT>0) e.speedBuffT-=dt;
     if (e.snareT>0){ e.snareT-=dt; if(e.snareT<=0) e.snareStacks=0; }
+    if (e.threatT>0) e.threatT-=dt;
     if (e.pingCd>0) e.pingCd-=dt;
     if (e.lootCd>0) e.lootCd-=dt;
     if (e.reviveProg>0 && !e.beingRevived) e.reviveProg=Math.max(0,e.reviveProg-dt*0.5);
     e.beingRevived=false;
     if (e.shieldRegen>0 && e.shield<e.maxShield && !e.downed) e.shield=Math.min(e.maxShield,e.shield+e.shieldRegen*dt);
+    // passive healing while out of combat (no damage taken for 5s)
+    if (e.regenLockT>0) e.regenLockT-=dt;
+    else if (!e.downed && e.hp<e.maxHp) e.hp=Math.min(e.maxHp, e.hp + e.maxHp*0.06*dt);
 
     if (e.isPlayer) controlPlayer(e,dt);
     else if (e.human) applyRemoteControl(e,dt);
@@ -970,12 +1060,16 @@ function update(dt){
     if (!dead) for (const o of G.hunters){ if(o.team===p.team||!o.alive||p.hits.has(o.id)) continue;
       if (dist(p.x,p.y,o.x,o.y)<o.radius+p.radius){ o.takeDamage(p.dmg,p.owner); if(p.dot) o.addDot(p.dot.dps,p.dot.dur,p.owner); spawnBurst(p.x,p.y,p.color,5);
         Sfx.hit(volAt(p.x,p.y)); p.hits.add(o.id); if(!p.pierce){dead=true;break;} } }
+    if (!dead && p.owner && p.owner.team>=0) for (const c of G.creeps){ if(!c.alive||p.hits.has(c.id)) continue;
+      if (dist(p.x,p.y,c.x,c.y)<c.radius+p.radius){ c.takeDamage(p.dmg,p.owner); spawnBurst(p.x,p.y,p.color,5);
+        Sfx.hit(volAt(p.x,p.y)); p.hits.add(c.id); if(!p.pierce){dead=true;break;} } }
     if (dead) G.projectiles.splice(i,1);
   }
   // aoes
   for (let i=G.aoes.length-1;i>=0;i--){ const a=G.aoes[i]; a.t-=dt;
     if (a.t<=0){ for(const o of G.hunters){ if(o.team===a.team||!o.alive) continue;
         if(dist(a.x,a.y,o.x,o.y)<a.r+o.radius){ o.takeDamage(a.dmg,a.owner); if(a.dot) o.addDot(a.dot.dps,a.dot.dur,a.owner); } }
+      if (a.owner && a.owner.team>=0) for(const c of G.creeps){ if(c.alive && dist(a.x,a.y,c.x,c.y)<a.r+c.radius) c.takeDamage(a.dmg,a.owner); }
       spawnBurst(a.x,a.y,a.color,18); spawnRing(a.x,a.y,a.r,a.color); Sfx.explode(volAt(a.x,a.y)); G.aoes.splice(i,1); }
   }
   for (let i=G.pings.length-1;i>=0;i--){ G.pings[i].t-=dt; if(G.pings[i].t<=0) G.pings.splice(i,1); }
@@ -987,10 +1081,10 @@ function update(dt){
   for (const m of G.motes){ m.x+=m.vx*dt; m.y+=m.vy*dt;
     if(m.y<-5){m.y=canvas.height+5;m.x=rand(0,canvas.width);} if(m.x<-5)m.x=canvas.width+5; if(m.x>canvas.width+5)m.x=-5; }
 
-  // keep map stocked within the zone
-  if (G.items.length < itemTarget() && Math.random()<dt*2){
-    const a=rand(0,TAU), r=rand(0,z.r*0.85); spawnItem(z.cx+Math.cos(a)*r, z.cy+Math.sin(a)*r);
-  }
+  // creeps (movement, aggro, contact damage, death)
+  updateCreeps(dt);
+  // the Storm Titan awakens at the centre once the lobby thins out
+  if (live && !G.bossSpawned && G.hunters.filter(h=>h.alive).length<=BOSS_TRIGGER) spawnBoss();
 
   // camera follow (player, or living teammate if dead)
   G.camFollow = G.player.alive ? G.player : (G.hunters.find(o=>o.team===G.player.team&&o.alive)||G.player);
@@ -1002,7 +1096,32 @@ function update(dt){
 
   checkEnd(); updateHUD();
 }
-function itemTarget(){ return Math.floor(WORLD*WORLD/1400000); }
+
+function updateCreeps(dt){
+  for (let i=G.creeps.length-1;i>=0;i--){
+    const c=G.creeps[i]; if(!c.alive){ G.creeps.splice(i,1); continue; }
+    if (c.flash>0) c.flash-=dt; if (c.atkCd>0) c.atkCd-=dt;
+    // nearest hunter
+    let tgt=null,td=c.cfg.aggro*c.cfg.aggro;
+    for (const h of G.hunters){ if(!h.alive||h.downed) continue; const d=dist2(c.x,c.y,h.x,h.y); if(d<td){td=d;tgt=h;} }
+    if (tgt){
+      const a=angTo(c.x,c.y,tgt.x,tgt.y), reach=c.radius+tgt.radius+6, d=dist(c.x,c.y,tgt.x,tgt.y);
+      if (d>reach){ c.x+=Math.cos(a)*c.cfg.speed*dt; c.y+=Math.sin(a)*c.cfg.speed*dt; }
+      else if (c.atkCd<=0){ tgt.takeDamage(c.cfg.dmg, c); c.atkCd=1; spawnBurst(tgt.x,tgt.y,c.color,5); }
+    } else {
+      // wander near spawn (boss holds the centre)
+      c.wt-=dt; if(c.wt<=0){ c.wander=rand(0,TAU); c.wt=rand(1.5,4); }
+      const home = c.type==='boss' ? dist(c.x,c.y,G.zone.cx,G.zone.cy)>120 : dist(c.x,c.y,c.spawnX,c.spawnY)>180;
+      const ang = home ? angTo(c.x,c.y, c.type==='boss'?G.zone.cx:c.spawnX, c.type==='boss'?G.zone.cy:c.spawnY) : c.wander;
+      c.x+=Math.cos(ang)*c.cfg.speed*0.5*dt; c.y+=Math.sin(ang)*c.cfg.speed*0.5*dt;
+    }
+    c.x=clamp(c.x,40,WORLD-40); c.y=clamp(c.y,40,WORLD-40);
+    // storm hurts creeps too (keeps the field clean late game)
+    if (dist(c.x,c.y,G.zone.cx,G.zone.cy)>G.zone.r) c.takeDamage((6+G.zone.stage*3)*dt, null);
+  }
+}
+function nearestCreep(e,range){ let best=null,bd=range*range;
+  for(const c of G.creeps){ if(!c.alive) continue; const d=dist2(e.x,e.y,c.x,c.y); if(d<bd){bd=d;best=c;} } return best; }
 
 function checkEnd(){
   if (G.over) return;
@@ -1083,24 +1202,24 @@ function updateHUD(){
     if(cd>0.05){ cool.classList.remove('hidden'); cool.textContent=cd.toFixed(1); } else cool.classList.add('hidden'); });
 
   // deploy / landing banner
-  const db=document.getElementById('deployBanner'), miniSel=document.getElementById('minimap');
+  const db=document.getElementById('deployBanner'), mini=document.getElementById('minimap');
   if (G.phase && G.phase!=='live'){
     db.classList.remove('hidden');
     if (G.phase==='choose'){
-      db.innerHTML=`<b>DROP IN ${Math.max(0,Math.ceil(G.deployT-5))}s</b><small>Tap the minimap to choose your squad's landing zone</small>`;
-      miniSel.classList.add('selectable');
+      db.innerHTML=`<b>DROP IN ${Math.max(0,Math.ceil(G.deployT-5))}s</b><small>Click the map to choose your squad's landing zone — green = loot</small>`;
+      mini.style.display='none';
     } else {
       db.innerHTML=`<b>GRACE — ${Math.max(0,Math.ceil(G.deployT))}s</b><small>Grab gear &amp; position — you're invulnerable until the storm hits</small>`;
-      miniSel.classList.remove('selectable');
+      mini.style.display='';
     }
-  } else { db.classList.add('hidden'); miniSel.classList.remove('selectable'); }
+  } else { db.classList.add('hidden'); mini.style.display=''; }
 
   // gear bar
   const gb=document.getElementById('gearBar'); let html='';
   for (let i=0;i<MAX_SLOTS;i++){ const s=p.slots[i];
     if (s){ const g=GEAR[s.id]; let pips=''; for(let l=0;l<3;l++) pips+=`<span class="pip ${l<s.lvl?'on':''}"></span>`;
-      html+=`<div class="gear-slot"><span class="gi">${g.emoji}</span>
-        <span class="gn">${g.name} <small>${g.blurb[s.lvl-1]}</small></span>
+      html+=`<div class="gear-slot"${s.t4?' style="border-color:var(--gold)"':''}><span class="gi">${g.emoji}</span>
+        <span class="gn">${g.name}${s.t4?' <b style="color:var(--gold)">T4</b>':''} <small>${s.t4?'pierces shields':g.blurb[s.lvl-1]}</small></span>
         <span class="pips">${pips}</span></div>`; }
     else html+=`<div class="gear-slot empty"><span class="gi">▫</span><span class="gn">Empty slot</span></div>`;
   }
@@ -1124,7 +1243,30 @@ function updateHUD(){
 // ============================================================
 //  RENDER
 // ============================================================
+function inVision(x,y){ const t=G.player?G.player.team:0;
+  for(const h of G.hunters){ if(h.alive && h.team===t && dist2(h.x,h.y,x,y)<VISION*VISION) return true; }
+  return false; }
+
+let fogCanvas=null, fogCtx=null;
+function drawFog(cam){
+  const w=canvas.width, h=canvas.height;
+  if(!fogCanvas){ fogCanvas=document.createElement('canvas'); fogCtx=fogCanvas.getContext('2d'); }
+  if(fogCanvas.width!==w||fogCanvas.height!==h){ fogCanvas.width=w; fogCanvas.height=h; }
+  const fc=fogCtx; fc.clearRect(0,0,w,h);
+  fc.fillStyle='rgba(4,7,14,0.88)'; fc.fillRect(0,0,w,h);
+  fc.globalCompositeOperation='destination-out';
+  const t=G.player?G.player.team:0;
+  for(const o of G.hunters){ if(!o.alive||o.team!==t) continue;
+    const sx=o.x-cam.x, sy=o.y-cam.y;
+    const g=fc.createRadialGradient(sx,sy,VISION*0.55,sx,sy,VISION);
+    g.addColorStop(0,'rgba(0,0,0,1)'); g.addColorStop(1,'rgba(0,0,0,0)');
+    fc.fillStyle=g; fc.beginPath(); fc.arc(sx,sy,VISION,0,TAU); fc.fill(); }
+  fc.globalCompositeOperation='source-over';
+  ctx.drawImage(fogCanvas,0,0);
+}
+
 function draw(){
+  if (G.phase==='choose'){ drawDeployOverview(); return; }
   const w=canvas.width, h=canvas.height, cam=G.cam;
   ctx.imageSmoothingEnabled=false;
   ctx.fillStyle='#0a1018'; ctx.fillRect(0,0,w,h);
@@ -1147,12 +1289,13 @@ function draw(){
   // ground items + names
   for (const it of G.items){ const sx=it.x-cam.x, sy=it.y-cam.y;
     if(sx<-40||sy<-40||sx>w+40||sy>h+40) continue;
-    const g=GEAR[it.id], bob=Math.sin(G.t*3+it.bob)*3;
-    ctx.beginPath(); ctx.arc(sx,sy+bob,12,0,TAU); ctx.fillStyle=g.color+'33'; ctx.fill();
-    ctx.strokeStyle=g.color; ctx.lineWidth=2; ctx.stroke();
+    const g=GEAR[it.id], bob=Math.sin(G.t*3+it.bob)*3, col=it.t4?'#ffd24a':g.color;
+    if (it.t4){ ctx.beginPath(); ctx.arc(sx,sy+bob,15,0,TAU); ctx.strokeStyle='rgba(255,210,74,.5)'; ctx.lineWidth=1; ctx.stroke(); }
+    ctx.beginPath(); ctx.arc(sx,sy+bob,12,0,TAU); ctx.fillStyle=col+'33'; ctx.fill();
+    ctx.strokeStyle=col; ctx.lineWidth=2; ctx.stroke();
     ctx.font='14px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillStyle='#fff'; ctx.fillText(g.emoji,sx,sy+bob+1);
-    ctx.font='11px sans-serif'; ctx.fillStyle=g.color;
-    ctx.fillText(g.name+(it.lvl>1?' Lv'+it.lvl:''), sx, sy+bob-20);
+    ctx.font='11px sans-serif'; ctx.fillStyle=col;
+    ctx.fillText(g.name+(it.t4?' T4✦':(it.lvl>1?' Lv'+it.lvl:'')), sx, sy+bob-20);
   }
 
   // aoes
@@ -1178,11 +1321,33 @@ function draw(){
   for (const p of G.projectiles){ const sx=p.x-cam.x, sy=p.y-cam.y;
     ctx.beginPath(); ctx.arc(sx,sy,p.radius,0,TAU); ctx.fillStyle=p.color; ctx.shadowColor=p.color; ctx.shadowBlur=10; ctx.fill(); ctx.shadowBlur=0; }
 
-  // entities
+  // creeps (only those your squad can see)
+  for (const c of G.creeps){ if(!c.alive) continue;
+    if (!inVision(c.x,c.y)) continue;
+    const sx=c.x-cam.x, sy=c.y-cam.y;
+    if(sx<-90||sy<-90||sx>w+90||sy>h+90) continue;
+    const big=c.type==='boss'||c.type==='miniboss';
+    ctx.fillStyle='rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(sx,sy+c.radius*0.6,c.radius*0.9,c.radius*0.4,0,0,TAU); ctx.fill();
+    const bob=Math.sin(G.t*4+c.bob)*c.radius*0.06;
+    ctx.beginPath(); ctx.arc(sx,sy+bob,c.radius,0,TAU);
+    ctx.fillStyle=c.flash>0?'#fff':c.color; ctx.fill();
+    ctx.strokeStyle=shade(c.color,-0.4); ctx.lineWidth=big?4:2; ctx.stroke();
+    // eyes
+    ctx.fillStyle='#1a1a1a'; ctx.beginPath(); ctx.arc(sx-c.radius*0.32,sy+bob-c.radius*0.1,c.radius*0.16,0,TAU); ctx.arc(sx+c.radius*0.32,sy+bob-c.radius*0.1,c.radius*0.16,0,TAU); ctx.fill();
+    // hp bar
+    const bw=c.radius*2.2, by=sy-c.radius-(big?16:9);
+    ctx.fillStyle='rgba(0,0,0,.6)'; ctx.fillRect(sx-bw/2,by,bw,big?6:4);
+    ctx.fillStyle=c.color; ctx.fillRect(sx-bw/2,by,bw*clamp(c.hp/c.maxHp,0,1),big?6:4);
+    if (big){ ctx.font='bold 12px sans-serif'; ctx.textAlign='center'; ctx.fillStyle=c.type==='boss'?'#ff7a7a':'#d9a0c0'; ctx.fillText(c.type==='boss'?'⚠ STORM TITAN':'MINI-BOSS', sx, by-6); }
+  }
+
+  // entities (allies always; enemies only in vision)
   for (const e of G.hunters){ if(!e.alive) continue;
+    const ally=e.team===G.player.team;
+    if (!ally && !inVision(e.x,e.y)) continue;
     const sx=e.x-cam.x, sy=e.y-cam.y;
     if(sx<-80||sy<-100||sx>w+80||sy>h+100) continue;
-    const ally=e.team===G.player.team, ring=e.isPlayer?'#ffd24a':ally?'#46e08a':'#ff5a5a';
+    const ring=e.isPlayer?'#ffd24a':ally?'#46e08a':'#ff5a5a';
 
     if (e.reviving){ ctx.beginPath(); ctx.moveTo(sx,sy); ctx.lineTo(e.reviving.x-cam.x,e.reviving.y-cam.y);
       ctx.strokeStyle='rgba(70,224,138,.6)'; ctx.lineWidth=3; ctx.stroke(); }
@@ -1234,6 +1399,12 @@ function draw(){
 
     ctx.font='11px sans-serif'; ctx.textAlign='center'; ctx.fillStyle=e.isPlayer?'#ffd24a':ring; ctx.fillText(e.isPlayer?'You':e.name,sx,by-7);
     if (e.downed){ ctx.fillStyle='#ff5a5a'; ctx.font='bold 12px sans-serif'; ctx.fillText('DOWN',sx,sy+e.radius+14); }
+    // teammate marker — a bobbing chevron so allies are easy to spot
+    if (ally && !e.isPlayer){
+      const cyy=by-16+Math.sin(G.t*4+e.id)*2;
+      ctx.fillStyle='#46e08a'; ctx.strokeStyle='#0a1018'; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.moveTo(sx-8,cyy); ctx.lineTo(sx+8,cyy); ctx.lineTo(sx,cyy+9); ctx.closePath(); ctx.fill(); ctx.stroke();
+    }
   }
 
   // particles
@@ -1259,6 +1430,9 @@ function draw(){
     ctx.fillStyle='#34e3ff'; ctx.font='bold 14px sans-serif'; ctx.textAlign='center'; ctx.fillText('DROP ZONE',sx,sy-48);
   }
 
+  // fog of war
+  drawFog(cam);
+
   // dust motes (screen space)
   for (const m of G.motes){ ctx.globalAlpha=m.a; ctx.fillStyle='#cfe2ff';
     ctx.beginPath(); ctx.arc(m.x,m.y,m.r,0,TAU); ctx.fill(); } ctx.globalAlpha=1;
@@ -1267,6 +1441,9 @@ function draw(){
   const vg=ctx.createRadialGradient(w/2,h/2,Math.min(w,h)*0.35, w/2,h/2,Math.max(w,h)*0.75);
   vg.addColorStop(0,'rgba(0,0,0,0)'); vg.addColorStop(1,'rgba(0,0,0,.45)');
   ctx.fillStyle=vg; ctx.fillRect(0,0,w,h);
+
+  // off-screen teammate direction arrows
+  drawTeammateArrows(cam);
 
   // mobile joysticks
   if (Mobile.on){
@@ -1280,19 +1457,88 @@ function draw(){
   drawMinimap();
 }
 
+function drawTeammateArrows(cam){
+  const ref=G.camFollow||G.player; if(!ref) return;
+  const w=canvas.width, h=canvas.height, cx=w/2, cy=h/2, t=G.player?G.player.team:0, mg=58;
+  for (const o of G.hunters){
+    if (!o.alive || o.team!==t || o===ref) continue;
+    const sx=o.x-cam.x, sy=o.y-cam.y;
+    if (sx>=0&&sy>=0&&sx<=w&&sy<=h) continue;            // on-screen already has a chevron
+    const ang=Math.atan2(sy-cy, sx-cx);
+    const hw=cx-mg, hh=cy-mg;
+    const d=Math.min(Math.abs(hw/Math.cos(ang))||1e9, Math.abs(hh/Math.sin(ang))||1e9);
+    const ex=cx+Math.cos(ang)*d, ey=cy+Math.sin(ang)*d;
+    const dist_m=Math.round(dist(o.x,o.y,G.camFollow.x,G.camFollow.y)/10);
+    ctx.save(); ctx.translate(ex,ey);
+    ctx.fillStyle=o.downed?'#ff5a5a':'#46e08a'; ctx.strokeStyle='#0a1018'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.arc(0,0,15,0,TAU); ctx.fill(); ctx.stroke();
+    ctx.save(); ctx.rotate(ang); ctx.fillStyle='#0a1018';
+    ctx.beginPath(); ctx.moveTo(14,0); ctx.lineTo(4,-6); ctx.lineTo(4,6); ctx.closePath(); ctx.fill(); ctx.restore();
+    ctx.fillStyle='#0a1018'; ctx.font='bold 9px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText((o.name||'').slice(0,4), 0, -1);
+    ctx.fillStyle=o.downed?'#ff5a5a':'#46e08a'; ctx.font='10px sans-serif';
+    ctx.fillText(`${o.downed?'DOWN ':''}${dist_m}m`, 0, 24);
+    ctx.restore();
+  }
+}
+
 function drawMinimap(){
   const s=160/WORLD; const z=G.zone;
   mmx.fillStyle='#0a0e1a'; mmx.fillRect(0,0,160,160);
   mmx.beginPath(); mmx.arc(z.cx*s,z.cy*s,z.r*s,0,TAU); mmx.strokeStyle='rgba(190,100,255,.8)'; mmx.lineWidth=1.5; mmx.stroke();
   for (const pg of G.pings){ mmx.fillStyle='#ffd24a'; mmx.fillRect(pg.x*s-1.5,pg.y*s-1.5,3,3); }
+  // creeps visible to your squad
+  for (const c of G.creeps){ if(!c.alive||!inVision(c.x,c.y)) continue;
+    mmx.fillStyle=c.type==='boss'?'#ff5a5a':c.type==='miniboss'?'#d36b9b':'#9bd36b';
+    mmx.beginPath(); mmx.arc(c.x*s,c.y*s, c.type==='boss'?3.5:c.type==='miniboss'?2.5:1.5,0,TAU); mmx.fill(); }
   for (const e of G.hunters){ if(!e.alive) continue; const ally=e.team===G.player.team;
-    mmx.fillStyle=e.isPlayer?'#ffd24a':ally?'#46e08a':'#ff5a5a';
+    if (!ally && !inVision(e.x,e.y)) continue;     // enemies hidden by fog of war
+    if (ally && !e.isPlayer){                        // teammates: bigger, ringed, easy to spot
+      mmx.fillStyle='#46e08a'; mmx.beginPath(); mmx.arc(e.x*s,e.y*s,3.5,0,TAU); mmx.fill();
+      mmx.strokeStyle='#0a1018'; mmx.lineWidth=1; mmx.stroke(); continue; }
+    mmx.fillStyle=e.isPlayer?'#ffd24a':'#ff5a5a';
     mmx.beginPath(); mmx.arc(e.x*s,e.y*s,e.isPlayer?3:2,0,TAU); mmx.fill(); }
   // landing marker during deploy
   if (G.phase==='choose' && G.landX!=null){
     mmx.strokeStyle='#34e3ff'; mmx.lineWidth=2;
     mmx.beginPath(); mmx.arc(G.landX*s,G.landY*s,6+Math.sin(G.t*5)*2,0,TAU); mmx.stroke();
   }
+}
+
+// full-screen map for choosing a drop zone (players/hunters hidden; creep packs shown)
+function drawDeployOverview(){
+  const w=canvas.width, h=canvas.height;
+  ctx.imageSmoothingEnabled=true;
+  ctx.fillStyle='#060a12'; ctx.fillRect(0,0,w,h);
+  const pad=70, scale=Math.min((w-pad*2)/WORLD,(h-pad*2)/WORLD);
+  const ox=(w-WORLD*scale)/2, oy=(h-WORLD*scale)/2;
+  G.ovScale=scale; G.ovX=ox; G.ovY=oy;
+  const X=x=>ox+x*scale, Y=y=>oy+y*scale;
+  ctx.fillStyle='#0c1626'; ctx.fillRect(ox,oy,WORLD*scale,WORLD*scale);
+  ctx.strokeStyle='rgba(255,255,255,.14)'; ctx.lineWidth=2; ctx.strokeRect(ox,oy,WORLD*scale,WORLD*scale);
+  ctx.strokeStyle='rgba(52,227,255,.07)'; ctx.lineWidth=1;
+  for(let g=0;g<=WORLD;g+=1000){ ctx.beginPath(); ctx.moveTo(X(g),oy); ctx.lineTo(X(g),oy+WORLD*scale); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(ox,Y(g)); ctx.lineTo(ox+WORLD*scale,Y(g)); ctx.stroke(); }
+  // storm ring
+  ctx.beginPath(); ctx.arc(X(G.zone.cx),Y(G.zone.cy),G.zone.r*scale,0,TAU); ctx.strokeStyle='rgba(190,100,255,.7)'; ctx.lineWidth=2; ctx.stroke();
+  // creep packs (loot hints) — NOT players/AI
+  for(const c of G.creeps){ if(!c.alive) continue;
+    const col=c.type==='boss'?'#ff5a5a':c.type==='miniboss'?'#d36b9b':c.type==='leader'?'#6bd3a0':'#9bd36b';
+    const rad=c.type==='boss'?10:c.type==='miniboss'?7:c.type==='leader'?5:3;
+    ctx.fillStyle=col; ctx.beginPath(); ctx.arc(X(c.x),Y(c.y),rad,0,TAU); ctx.fill();
+    if(c.type==='miniboss'||c.type==='boss'){ ctx.fillStyle=col; ctx.font='bold 10px sans-serif'; ctx.textAlign='center';
+      ctx.fillText(c.type==='boss'?'BOSS':'mini-boss',X(c.x),Y(c.y)-rad-4); }
+  }
+  // your chosen drop
+  if (G.landX!=null){ const sx=X(G.landX), sy=Y(G.landY);
+    ctx.strokeStyle='#34e3ff'; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(sx,sy,14+Math.sin(G.t*5)*3,0,TAU); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(sx-22,sy); ctx.lineTo(sx+22,sy); ctx.moveTo(sx,sy-22); ctx.lineTo(sx,sy+22); ctx.globalAlpha=0.5; ctx.stroke(); ctx.globalAlpha=1;
+    ctx.fillStyle='#34e3ff'; ctx.font='bold 13px sans-serif'; ctx.textAlign='center'; ctx.fillText('YOUR DROP',sx,sy-22); }
+  // legend
+  ctx.textAlign='left'; ctx.font='11px sans-serif';
+  const lg=[['#9bd36b','Creeps — basic gear'],['#6bd3a0','Packs — +1 upgraded piece'],['#d36b9b','Mini-boss — maxed gear'],['#ff5a5a','Boss (centre, late game) — Tier-4']];
+  lg.forEach((l,i)=>{ const ly=oy+14+i*16; ctx.fillStyle=l[0]; ctx.beginPath(); ctx.arc(ox+10,ly,4,0,TAU); ctx.fill();
+    ctx.fillStyle='#c8d6f0'; ctx.fillText(l[1],ox+20,ly+4); });
 }
 
 // ============================================================
@@ -1374,11 +1620,12 @@ function encodeSnapshot(forId){
   }
   for (const p of G.projectiles) P.push([p.x|0,p.y|0, p.radius, palIdx(p.color)]);
   for (const a of G.aoes) A.push([a.x|0,a.y|0, a.r|0, Math.round((1-a.t/a.max)*100), palIdx(a.color)]);
-  for (const it of G.items) I.push([gIdx(it.id), it.lvl, it.x|0, it.y|0]);
+  for (const it of G.items) I.push([gIdx(it.id), it.lvl, it.x|0, it.y|0, it.t4?1:0]);
   for (const pg of G.pings) PG.push([pg.x|0,pg.y|0]);
+  const Cr=[]; for (const c of G.creeps){ if(!c.alive) continue; Cr.push([CREEP_IDS.indexOf(c.type), c.x|0, c.y|0, Math.round(c.hp/c.maxHp*100)]); }
   const me=G.hunters.find(h=>h.controlledBy===forId);
   const you = me ? { cd:me.cd, slots:me.slots, kills:me.kills } : null;
-  return { t:'state', z:[z.cx|0,z.cy|0,z.r|0,z.target|0,z.stage,Math.ceil(z.nextShrink)], H,P,A,I,PG, you,
+  return { t:'state', z:[z.cx|0,z.cy|0,z.r|0,z.target|0,z.stage,Math.ceil(z.nextShrink)], H,P,A,I,PG,Cr, you,
     ph:G.phase, dT:Math.max(0,Math.round(G.deployT*10)/10) };
 }
 
@@ -1406,7 +1653,7 @@ function clientStartMatch(){
   if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
   Sfx.ambientStart(); Terrain.generate();
   HUNTER_IDS.forEach(id => Sprites[id]=buildSprite(HUNTERS[id]));
-  G = { hunters:[], hmap:new Map(), projectiles:[], aoes:[], items:[], pings:[], particles:[], motes:[], swings:[],
+  G = { hunters:[], hmap:new Map(), projectiles:[], aoes:[], items:[], pings:[], particles:[], motes:[], swings:[], creeps:[],
     cam:{x:WORLD/2-canvas.width/2,y:WORLD/2-canvas.height/2}, t:0, over:false, names:{}, myHunterId:null, barBuilt:false, clientSwingCd:0,
     phase:'choose', deployT:20, landX:null, landY:null,
     zone:{cx:WORLD/2,cy:WORLD/2,r:WORLD*0.82,target:WORLD*0.82,stage:0,nextShrink:40} };
@@ -1436,7 +1683,9 @@ function clientApplySnapshot(snap){
   G.hunters=[...G.hmap.values()];
   if (G.myHunterId!=null) G.player=G.hmap.get(G.myHunterId)||G.player;
   if (snap.you && G.player){ G.player.cd=snap.you.cd||{}; G.player.slots=snap.you.slots||[]; G.player.kills=snap.you.kills||0; }
-  G.items=snap.I.map((a,i)=>({id:GEAR_IDS[a[0]]||GEAR_IDS[0], lvl:a[1], x:a[2], y:a[3], bob:i*0.6}));
+  G.items=snap.I.map((a,i)=>({id:GEAR_IDS[a[0]]||GEAR_IDS[0], lvl:a[1], x:a[2], y:a[3], t4:!!a[4], bob:i*0.6}));
+  G.creeps=(snap.Cr||[]).map((a,i)=>{ const type=CREEP_IDS[a[0]]||'little', cfg=CREEP_TYPES[type];
+    return { type, cfg, x:a[1], y:a[2], maxHp:cfg.hp, hp:cfg.hp*a[3]/100, radius:cfg.r, color:cfg.color, alive:true, flash:0, bob:i*0.7 }; });
   G.projectiles=snap.P.map(a=>({x:a[0],y:a[1],radius:a[2],color:PALETTE[a[3]]||'#fff'}));
   G.aoes=snap.A.map(a=>({x:a[0],y:a[1],r:a[2],t:1-a[3]/100,max:1,color:PALETTE[a[4]]||'#fff'}));
   G.pings=snap.PG.map(a=>({x:a[0],y:a[1],t:2,team:0,by:null}));
@@ -1446,17 +1695,18 @@ function clientApplySnapshot(snap){
 function clientSendInput(dt){
   const r = G.player ? readMoveAim(G.player) : {mx:0,my:0,aim:0,fire:false};
   const w = G.player ? worldMouse() : {x:0,y:0};
+  const able = G.player && G.player.alive && !G.player.downed;   // can't attack while downed/dead
   // edge-detected ping (V) and interact (F)
   if (Input.keys.has('v')){ if(!clientVHeld){ clientVHeld=true; clientPing=[w.x|0,w.y|0]; Sfx.ping(1); } } else clientVHeld=false;
   if (Input.keys.has('f')){ if(!clientFHeld){ clientFHeld=true; clientAct=true; } } else clientFHeld=false;
-  // optimistic local ability sounds
+  // optimistic local ability sounds (only when able to act)
   ['q','e','r',' '].forEach(k=>{ const down=Input.keys.has(k);
-    if (down && !clientEdge[k]){ clientEdge[k]=true; (k===' '?Sfx.dash:Sfx.cast)(0.7); } else if(!down) clientEdge[k]=false; });
+    if (able && down && !clientEdge[k]){ clientEdge[k]=true; (k===' '?Sfx.dash:Sfx.cast)(0.7); } else if(!down) clientEdge[k]=false; });
   clientInAccum+=dt; if (clientInAccum < 1/30) return; clientInAccum=0;
   if (!Net.ready || !G.player) return;
   const msg={ t:'in', mv:[r.mx,r.my], aim:r.aim,
-    fire:r.fire?1:0, q:Input.keys.has('q')?1:0, e:Input.keys.has('e')?1:0, r:Input.keys.has('r')?1:0,
-    dash:Input.keys.has(' ')?1:0, fhold:Input.keys.has('f')?1:0 };
+    fire:able&&r.fire?1:0, q:able&&Input.keys.has('q')?1:0, e:able&&Input.keys.has('e')?1:0, r:able&&Input.keys.has('r')?1:0,
+    dash:able&&Input.keys.has(' ')?1:0, fhold:Input.keys.has('f')?1:0 };
   if (clientPing){ msg.ping=clientPing; clientPing=null; }
   if (clientAct){ msg.act=1; clientAct=false; }
   Net.toHost(msg);
@@ -1480,7 +1730,7 @@ function clientTick(dt){
   if (G.swings) for(let i=G.swings.length-1;i>=0;i--){ G.swings[i].t-=dt; if(G.swings[i].t<=0) G.swings.splice(i,1); }
   // optimistic cleave swing for a client controlling Vanguard
   if (G.clientSwingCd>0) G.clientSwingCd-=dt;
-  if (G.player && G.player.hid==='vanguard' && Input.mdown && G.clientSwingCd<=0){
+  if (G.player && G.player.alive && !G.player.downed && G.player.hid==='vanguard' && Input.mdown && G.clientSwingCd<=0){
     spawnSwing(G.player, HUNTERS.vanguard.basic); G.clientSwingCd=HUNTERS.vanguard.basic.cd;
   }
   if (G.player) updateHUD();
@@ -1497,6 +1747,7 @@ function updStick(s,x,y){
 }
 function mobileTouch(e){
   if (!Mobile.on) return;
+  if (G && G.phase==='choose') return;   // deploy map handles taps
   e.preventDefault();
   for (const t of e.changedTouches){
     if (e.type!=='touchstart') continue;
@@ -1547,6 +1798,20 @@ function setupMobile(){
 // minimap landing selection (deploy phase)
 mm.addEventListener('mousedown', chooseLanding);
 mm.addEventListener('touchstart', chooseLanding, {passive:false});
+
+// click/tap the big deploy map to choose a drop zone
+function deployClick(ev){
+  if (!G || G.phase!=='choose' || G.ovScale==null) return;
+  ev.preventDefault();
+  const r=canvas.getBoundingClientRect();
+  const px=(ev.touches?ev.touches[0].clientX:ev.clientX)-r.left;
+  const py=(ev.touches?ev.touches[0].clientY:ev.clientY)-r.top;
+  G.landX=clamp((px-G.ovX)/G.ovScale,0,WORLD); G.landY=clamp((py-G.ovY)/G.ovScale,0,WORLD);
+  if (NETROLE==='client') Net.toHost({t:'land', x:G.landX, y:G.landY});
+  Sfx.ping(0.6);
+}
+canvas.addEventListener('mousedown', deployClick);
+canvas.addEventListener('touchstart', deployClick, {passive:false});
 
 setupMobile();
 Lobby.init();
