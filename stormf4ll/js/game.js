@@ -86,7 +86,7 @@ const HUNTERS = {
     name:'Warlock', emoji:'💀', color:'#9b5de5', role:'Warlock', weapon:'staff',
     maxHp:235, speed:212, radius:18,
     desc:'Damage-over-time caster. Afflicts foes with curses and plagues that rot their health over time, then slips away through shadow.',
-    basic:{ key:'LMB', name:'Affliction', emoji:'🟣', cd:0.55, kind:'proj', dmg:10, speed:600, range:580, radius:8, dot:{dps:4, dur:4} },
+    basic:{ key:'LMB', name:'Affliction', emoji:'🟣', cd:0.55, kind:'proj', dmg:18, speed:600, range:580, radius:8, dot:{dps:2, dur:4} },
     q:{ key:'Q', name:'Plague', emoji:'☣️', cd:7, kind:'dotaoe', dmg:14, radius:175, delay:0.4, atCursor:true, dot:{dps:7, dur:5} },
     e:{ key:'E', name:'Shadowstep', emoji:'🌑', cd:7, kind:'blink', range:350 },
     r:{ key:'R', name:'Apocalypse', emoji:'☠️', cd:24, kind:'dotaoe', dmg:40, radius:300, delay:0.6, atCursor:true, dot:{dps:13, dur:6} }
@@ -657,14 +657,18 @@ function startMatch(){
   G = {
     hunters:[], projectiles:[], aoes:[], items:[], pings:[], particles:[], motes:[], swings:[],
     cam:{x:0,y:0}, t:0, over:false, placeWhenDead:0, flash:0, bolt:null, lightT:rand(5,12),
-    diff: Lobby.difficulty, phase:'choose', deployT:20, landX:null, landY:null,
+    diff: Lobby.difficulty, phase:'choose', deployT:20, landX:null, landY:null, overtime:false,
     zone:{ cx:WORLD/2, cy:WORLD/2, r:WORLD*0.82, target:WORLD*0.82, nextShrink:40, stage:0 }
   };
 
+  // scatter squads evenly across the whole map via a shuffled jittered grid
+  const cols=Math.ceil(Math.sqrt(SQUADS)), cellW=WORLD/cols, cells=[];
+  for (let gy=0; gy<cols; gy++) for (let gx=0; gx<cols; gx++) cells.push([gx,gy]);
+  for (let i=cells.length-1; i>0; i--){ const j=randi(0,i); const t=cells[i]; cells[i]=cells[j]; cells[j]=t; }
   for (let s=0; s<SQUADS; s++){
-    const a=rand(0,TAU), rr=rand(WORLD*0.12, WORLD*0.46);
-    const sx=clamp(WORLD/2+Math.cos(a)*rr, 200, WORLD-200);
-    const sy=clamp(WORLD/2+Math.sin(a)*rr, 200, WORLD-200);
+    const [gx,gy]=cells[s];
+    const sx=clamp(gx*cellW + rand(cellW*0.2, cellW*0.8), 200, WORLD-200);
+    const sy=clamp(gy*cellW + rand(cellW*0.2, cellW*0.8), 200, WORLD-200);
     for (let m=0;m<SQUAD_SIZE;m++){
       const isPlayer=(s===0&&m===0);
       const hid = isPlayer ? Lobby.hunter : HUNTER_IDS[randi(0,HUNTER_IDS.length-1)];
@@ -854,13 +858,11 @@ function controlPlayer(p, dt){
   if (Input.keys.has(' ') && p.cd.dash<=0){ const a=p.aim; p.dashVx=Math.cos(a)*900; p.dashVy=Math.sin(a)*900; p.dashT=0.2; p.cd.dash=3; spawnBurst(p.x,p.y,p.def.color,6); Sfx.dash(1); }
   if (Input.keys.has('v') && p.pingCd<=0){ addPing(w.x,w.y,p.team,p); p.pingCd=1; Input.keys.delete('v'); }
 
-  // F = interact: equip nearby item (tap) else revive ally (hold)
-  if (Input.keys.has('f')){
-    const item=nearestGroundItem(p,90);
-    if (item){ equipItem(p,item); Input.keys.delete('f'); }
-    else { const ally=G.hunters.find(o=>o.team===p.team&&o!==p&&o.downed&&dist(o.x,o.y,p.x,p.y)<90);
-      if (ally){ ally.reviveProg+=dt; p.reviving=ally; if(ally.reviveProg>=2.5) ally.reviveTo(); } }
-  }
+  // auto-revive a downed teammate you're standing near — no key needed
+  const downAlly=G.hunters.find(o=>o.team===p.team&&o!==p&&o.downed&&dist(o.x,o.y,p.x,p.y)<110);
+  if (downAlly){ downAlly.reviveProg+=dt; p.reviving=downAlly; if(downAlly.reviveProg>=2.5) downAlly.reviveTo(); }
+  // F = equip nearby item (when not reviving)
+  else if (Input.keys.has('f')){ const item=nearestGroundItem(p,90); if (item){ equipItem(p,item); Input.keys.delete('f'); } }
 }
 
 // difficulty helpers (apply to enemy squads; your allied AI stays Normal)
@@ -878,8 +880,9 @@ function controlAI(e, dt){
   e.aiTimer-=dt;
   const inStorm = dist(e.x,e.y,G.zone.cx,G.zone.cy) > G.zone.r;
 
-  let foe=null, fd=1e18;
-  for (const o of G.hunters){ if(o.team===e.team||!o.alive) continue; const d=dist2(e.x,e.y,o.x,o.y); if(d<fd){fd=d;foe=o;} }
+  // AI only detects enemies within its own line of sight (matches fog of war)
+  let foe=null, fd=1e18; const los=VISION*VISION;
+  for (const o of G.hunters){ if(o.team===e.team||!o.alive) continue; const d=dist2(e.x,e.y,o.x,o.y); if(d<fd && d<los){fd=d;foe=o;} }
   fd=Math.sqrt(fd);
   let downAlly=null, dad=1e9;
   for (const o of G.hunters){ if(o.team===e.team&&o!==e&&o.downed){ const d=dist(e.x,e.y,o.x,o.y); if(d<dad){dad=d;downAlly=o;} } }
@@ -998,13 +1001,18 @@ function update(dt){
   }
   const live = G.phase==='live';
 
-  // zone shrink (only once live)
+  // zone shrink (only once live); collapses to nothing in OVERTIME
   if (live){
-    z.nextShrink-=dt;
-    if (z.nextShrink<=0 && z.target>WORLD*0.05){
-      z.stage++; z.target=Math.max(WORLD*0.05, z.target*0.7);
-      z.nextShrink=Math.max(20, 40-z.stage*2.5);
-      addFeed('⚠ The storm is closing in'); Sfx.zone();
+    if (z.target > WORLD*0.05){
+      z.nextShrink-=dt;
+      if (z.nextShrink<=0){
+        z.stage++; z.target=Math.max(WORLD*0.05, z.target*0.7);
+        z.nextShrink=Math.max(20, 40-z.stage*2.5);
+        addFeed('⚠ The storm is closing in'); Sfx.zone();
+      }
+    } else {
+      if (!G.overtime){ G.overtime=true; addFeed('⏱ OVERTIME — the storm collapses to nothing!'); Sfx.zone(); }
+      z.target=Math.max(0, z.target - WORLD*0.0025*dt);   // fully close over ~24s
     }
   }
   z.r=lerp(z.r,z.target,dt*0.4);
@@ -1049,7 +1057,7 @@ function update(dt){
     if (moving) e.walkT+=dt*10;
     e.x=clamp(e.x,e.radius,WORLD-e.radius); e.y=clamp(e.y,e.radius,WORLD-e.radius);
 
-    if (dist(e.x,e.y,z.cx,z.cy)>z.r) e.takeDamage((7+z.stage*3)*dt, null);
+    if (dist(e.x,e.y,z.cx,z.cy)>z.r) e.takeDamage((7+z.stage*3 + (G.overtime?40:0))*dt, null);
   }
   for (const e of G.hunters) if (e.reviving) e.reviving.beingRevived=true;
 
@@ -1181,7 +1189,9 @@ function updateHUD(){
   document.getElementById('aliveCount').textContent=alive;
   document.getElementById('squadCount').textContent=squads;
   document.getElementById('zoneTimer').textContent =
-    G.zone.target<=WORLD*0.06?'Final zone!':`Storm closes in ${Math.ceil(G.zone.nextShrink)}s`;
+    G.zone.target<=WORLD*0.051 ? '⏱ OVERTIME — storm collapsing!'
+    : G.zone.target<=WORLD*0.07 ? 'Final zone!'
+    : `Storm closes in ${Math.ceil(G.zone.nextShrink)}s`;
 
   const panel=document.getElementById('squadPanel'); panel.innerHTML='';
   G.hunters.filter(e=>e.team===p.team).forEach(e=>{
@@ -1228,13 +1238,19 @@ function updateHUD(){
   // interact prompt
   const prompt=document.getElementById('interactPrompt');
   if (p.alive && !p.downed){
-    const it=nearestGroundItem(p,90);
-    if (it){ const g=GEAR[it.id], owned=p.slots.find(x=>x.id===it.id);
-      prompt.innerHTML=`<b>F</b> ${owned?(owned.lvl<3?'Upgrade':'Max'):'Equip'} ${g.name}${it.lvl>1?' Lv'+it.lvl:''}`;
-      prompt.classList.remove('hidden'); }
-    else { const ally=G.hunters.find(o=>o.team===p.team&&o!==p&&o.downed&&dist(o.x,o.y,p.x,p.y)<90);
-      if (ally){ prompt.innerHTML=`<b>F</b> Revive ${ally.name}`; prompt.classList.remove('hidden'); }
-      else prompt.classList.add('hidden'); }
+    // reviving a downed ally takes priority over picking up loot
+    const ally=G.hunters.find(o=>o.team===p.team&&o!==p&&o.downed&&dist(o.x,o.y,p.x,p.y)<110);
+    if (ally){
+      const pct=Math.round(clamp(ally.reviveProg/2.5,0,1)*100);
+      prompt.innerHTML=`<b>REVIVING</b> ${ally.name} — ${pct}%`;
+      prompt.classList.remove('hidden');
+    } else {
+      const it=nearestGroundItem(p,90);
+      if (it){ const g=GEAR[it.id], owned=p.slots.find(x=>x.id===it.id);
+        prompt.innerHTML=`<b>F</b> ${owned?(owned.lvl<3?'Upgrade':'Max'):'Equip'} ${g.name}${it.t4?' T4':(it.lvl>1?' Lv'+it.lvl:'')}`;
+        prompt.classList.remove('hidden'); }
+      else prompt.classList.add('hidden');
+    }
   } else prompt.classList.add('hidden');
 
   document.getElementById('downedBanner').classList.toggle('hidden', !p.downed);
@@ -1398,7 +1414,12 @@ function draw(){
     if (e.shield>0 && !e.downed){ ctx.fillStyle='#34e3ff'; ctx.fillRect(sx-bw/2,by-3,bw*clamp(e.shield/300,0,1),2); }
 
     ctx.font='11px sans-serif'; ctx.textAlign='center'; ctx.fillStyle=e.isPlayer?'#ffd24a':ring; ctx.fillText(e.isPlayer?'You':e.name,sx,by-7);
-    if (e.downed){ ctx.fillStyle='#ff5a5a'; ctx.font='bold 12px sans-serif'; ctx.fillText('DOWN',sx,sy+e.radius+14); }
+    if (e.downed){ ctx.fillStyle='#ff5a5a'; ctx.font='bold 12px sans-serif'; ctx.fillText('DOWN',sx,sy+e.radius+14);
+      if (ally && !e.isPlayer && G.player.alive && !G.player.downed && dist(e.x,e.y,G.player.x,G.player.y)<110){
+        const pct=clamp(e.reviveProg/2.5,0,1);
+        ctx.fillStyle='#46e08a'; ctx.font='bold 11px sans-serif'; ctx.fillText('REVIVING…',sx,sy+e.radius+28);
+        if (pct>0){ ctx.fillStyle='rgba(0,0,0,.6)'; ctx.fillRect(sx-24,sy+e.radius+34,48,4);
+          ctx.fillStyle='#46e08a'; ctx.fillRect(sx-24,sy+e.radius+34,48*pct,4); } } }
     // teammate marker — a bobbing chevron so allies are easy to spot
     if (ally && !e.isPlayer){
       const cyy=by-16+Math.sin(G.t*4+e.id)*2;
@@ -1576,6 +1597,9 @@ function netHostData(fromId, msg){
     if (h) h._in=msg;
   } else if (msg.t==='land'){
     if (G && G.phase==='choose'){ G.landX=msg.x; G.landY=msg.y; }
+  } else if (msg.t==='chat'){
+    addChatMsg(msg.name, msg.text);
+    for (const id in Net.conns) if (id!==fromId) Net.send(id, {t:'chat', name:msg.name, text:msg.text});
   }
 }
 function netHostClose(id){
@@ -1607,10 +1631,9 @@ function applyRemoteControl(h, dt){
   if (inp.r) cast(h,'r');
   if (inp.dash && h.cd.dash<=0){ const a=h.aim; h.dashVx=Math.cos(a)*900; h.dashVy=Math.sin(a)*900; h.dashT=0.2; h.cd.dash=3; spawnBurst(h.x,h.y,h.def.color,6); }
   if (inp.ping){ if(h.pingCd<=0){ addPing(inp.ping[0],inp.ping[1],h.team,h); h.pingCd=1; } inp.ping=null; }
-  const item = nearestGroundItem(h,90);
-  if (inp.act){ inp.act=false; if(item) equipItem(h,item); }
-  if (inp.fhold && !item){ const ally=G.hunters.find(o=>o.team===h.team&&o!==h&&o.downed&&dist(o.x,o.y,h.x,h.y)<90);
-    if (ally){ ally.reviveProg+=dt; h.reviving=ally; if(ally.reviveProg>=2.5) ally.reviveTo(); } }
+  const ally=G.hunters.find(o=>o.team===h.team&&o!==h&&o.downed&&dist(o.x,o.y,h.x,h.y)<110);
+  if (ally){ ally.reviveProg+=dt; h.reviving=ally; if(ally.reviveProg>=2.5) ally.reviveTo(); }   // auto-revive
+  else if (inp.act){ inp.act=false; const item=nearestGroundItem(h,90); if(item) equipItem(h,item); }
 }
 function encodeSnapshot(forId){
   const z=G.zone, H=[],P=[],A=[],I=[],PG=[];
@@ -1638,6 +1661,7 @@ function netClientData(msg){
     case 'init': if(G){ G.myHunterId=msg.youId; G.names=msg.names||{}; } break;
     case 'state': clientApplySnapshot(msg); break;
     case 'feed': addFeedDOM(msg.x); break;
+    case 'chat': addChatMsg(msg.name, msg.text); break;
     case 'end': if(G){ G.over=true; endScreenShow(msg.won, msg.place, msg.yourKills, msg.squadKills); } break;
   }
 }
@@ -1768,9 +1792,11 @@ function mobileTouchEnd(e){
 }
 function buildMobileButtons(){
   const wrap=document.getElementById('mobileButtons'); wrap.innerHTML='';
-  const defs=[['q','Q'],['e','E'],['r','R'],[' ','⚡'],['v','⚑'],['f','✋']];
+  const defs=[['q','Q'],['e','E'],['r','R'],[' ','⚡'],['v','⚑'],['f','✋'],['chat','💬']];
   defs.forEach(([key,label])=>{
     const b=document.createElement('div'); b.className='mbtn';
+    if (key==='chat'){ b.innerHTML=`<span class="mlabel">${label}</span>`;
+      b.addEventListener('touchstart',ev=>{ ev.preventDefault(); openChat(); },{passive:false}); wrap.appendChild(b); return; }
     const slot = key===' '?'dash':((key==='v'||key==='f')?'':key);
     if (slot) b.dataset.slot=slot;
     b.innerHTML=`<span class="mlabel">${label}</span><span class="cool hidden"></span>`;
@@ -1812,6 +1838,38 @@ function deployClick(ev){
 }
 canvas.addEventListener('mousedown', deployClick);
 canvas.addEventListener('touchstart', deployClick, {passive:false});
+
+// ============================================================
+//  TEAM CHAT
+// ============================================================
+const chatInputEl=document.getElementById('chatInput'), chatLogEl=document.getElementById('chatLog');
+let chatOpen=false;
+function esc(s){ return (s||'').replace(/[<>&]/g, c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c])); }
+function addChatMsg(name, text, mine){
+  const el=document.createElement('div'); el.className='chat-msg'+(mine?' mine':'');
+  el.innerHTML=`<b>${esc(String(name).slice(0,12))}:</b> ${esc(String(text).slice(0,120))}`;
+  chatLogEl.appendChild(el);
+  while (chatLogEl.children.length>6) chatLogEl.firstChild.remove();
+  setTimeout(()=>{ if(el.parentNode){ el.style.transition='opacity .8s'; el.style.opacity='0'; setTimeout(()=>el.remove(),800); } }, 16000);
+}
+function openChat(){ if(!G||G.over) return; chatOpen=true; Input.keys.clear(); Input.mdown=false;
+  chatInputEl.classList.remove('hidden'); chatInputEl.focus(); }
+function closeChat(){ chatOpen=false; chatInputEl.classList.add('hidden'); chatInputEl.value=''; chatInputEl.blur(); }
+function sendChat(text){
+  const name = NETROLE==='solo' ? 'You' : Lobby.myName();
+  addChatMsg('You', text, true);
+  if (NETROLE==='host') Net.broadcast({t:'chat', name, text});
+  else if (NETROLE==='client') Net.toHost({t:'chat', name, text});
+}
+chatInputEl.addEventListener('keydown', e=>{
+  e.stopPropagation();
+  if (e.key==='Enter'){ const t=chatInputEl.value.trim(); if(t) sendChat(t); closeChat(); }
+  else if (e.key==='Escape'){ closeChat(); }
+});
+window.addEventListener('keydown', e=>{
+  if (e.key!=='Enter' || typingInField(e)) return;
+  if (!document.getElementById('game').classList.contains('hidden') && G && !G.over){ openChat(); e.preventDefault(); }
+});
 
 setupMobile();
 Lobby.init();

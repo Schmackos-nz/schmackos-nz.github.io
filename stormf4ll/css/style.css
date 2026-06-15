@@ -112,7 +112,7 @@ button{cursor:pointer;font-family:inherit}
 
 #minimap{position:absolute;top:12px;right:12px;background:rgba(8,12,22,.7);
   border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:6px;line-height:0}
-.killfeed{position:absolute;top:120px;right:14px;display:flex;flex-direction:column;gap:5px;align-items:flex-end}
+.killfeed{position:absolute;top:200px;right:14px;display:flex;flex-direction:column;gap:5px;align-items:flex-end;max-width:280px}
 .kf{background:rgba(8,12,22,.78);padding:5px 10px;border-radius:7px;font-size:12px;
   animation:kfIn .3s ease;border-left:3px solid var(--accent2)}
 @keyframes kfIn{from{opacity:0;transform:translateX(20px)}}
@@ -190,3 +190,15 @@ body.mobile .controls-hint{display:none}
 body.mobile #mobileControls{display:block}
 body.mobile .gear-bar{bottom:auto;top:120px;right:8px}
 body.mobile .gear-slot{min-width:120px;padding:4px 7px}
+
+/* ---------- team chat ---------- */
+#chat{position:absolute;left:14px;bottom:96px;width:min(340px,46vw);z-index:6;pointer-events:none}
+.chat-log{display:flex;flex-direction:column;gap:3px;margin-bottom:6px}
+.chat-msg{background:rgba(8,12,22,.7);border-left:3px solid var(--good);border-radius:6px;
+  padding:4px 9px;font-size:12px;line-height:1.35;max-width:100%;animation:kfIn .25s ease;word-break:break-word}
+.chat-msg b{color:var(--good)}
+.chat-msg.mine b{color:var(--accent)}
+.chat-input{pointer-events:auto;width:100%;padding:9px 11px;border:1px solid var(--accent);
+  background:rgba(8,12,22,.95);color:var(--text);border-radius:9px;font-size:13px;font-family:inherit}
+.chat-hint{font-size:11px;color:var(--muted);background:rgba(8,12,22,.5);border-radius:5px;padding:2px 6px;align-self:flex-start}
+body.mobile #chat{bottom:200px}

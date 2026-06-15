@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-<title>Storm FALL 4.Poo — Arena Royale</title>
+<title>StormFALL 4.Wees — Arena Royale</title>
 <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
@@ -12,7 +12,7 @@
 <div id="menu" class="screen">
   <div class="bg-grid"></div>
   <div class="menu-inner">
-    <h1 class="title">Storm<span>FALL</span> 4.Poo</h1>
+    <h1 class="title">Storm<span>FALL</span> 4.Wees</h1>
     <p class="tagline">Drop in. Squad up. Last team standing wins the crown.</p>
 
     <div id="crownBanner" class="crown-banner hidden">
@@ -71,7 +71,7 @@
     </div>
 
     <button id="btnPlay" class="play-btn">FIND MATCH ▸</button>
-    <p class="controls-hint">WASD move · Mouse aim · <b>LMB</b> attack · <b>Q/E</b> abilities · <b>R</b> ultimate · <b>Space</b> dash · <b>V</b> ping · <b>F</b> equip / revive</p>
+    <p class="controls-hint">WASD move · Mouse aim · <b>LMB</b> attack · <b>Q/E</b> abilities · <b>R</b> ultimate · <b>Space</b> dash · <b>V</b> ping · <b>F</b> equip · auto-revive teammates · <b>Enter</b> chat</p>
   </div>
 </div>
 
@@ -107,6 +107,12 @@
   <!-- Mobile touch controls -->
   <div id="mobileControls" class="hidden">
     <div id="mobileButtons"></div>
+  </div>
+
+  <!-- Team chat -->
+  <div id="chat">
+    <div id="chatLog" class="chat-log"></div>
+    <input id="chatInput" class="chat-input hidden" maxlength="120" placeholder="Message your team…  (Enter to send · Esc to cancel)" />
   </div>
 
   <!-- End screen -->
