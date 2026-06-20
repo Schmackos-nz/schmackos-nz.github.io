@@ -16,9 +16,9 @@
   h1{font-size:clamp(34px,8vw,84px);letter-spacing:.35em;margin:.1em 0;
     color:#e8e8e8;text-shadow:0 0 24px rgba(255,255,255,.25);}
   h1.dead{color:#bdbdbd;text-shadow:0 0 30px rgba(255,255,255,.15);}
-  .sub{max-width:640px;line-height:1.6;font-size:clamp(13px,2.2vw,16px);
+  .sub{max-width:660px;line-height:1.6;font-size:clamp(13px,2.2vw,16px);
     color:#9a9a9a;}
-  .keys{margin:18px 0;font-size:14px;color:#bbb;line-height:1.9;}
+  .keys{margin:18px 0;font-size:13px;color:#bbb;line-height:1.9;}
   .keys b{color:#fff;}
   button{margin-top:22px;background:#111;color:#e8e8e8;border:1px solid #555;
     padding:14px 34px;font-family:inherit;font-size:18px;letter-spacing:.2em;
@@ -37,15 +37,17 @@
   <h1 class="flick">TALLOWMINE</h1>
   <p class="sub">You are lost in the black of an abandoned mine, with nothing
     but a guttering tallow candle. The dark is not empty.<br><br>
-    Find the <b>SPADE</b> and the <b>DYNAMITE</b> at opposite ends of the shaft.
-    Dig through the collapsed rock, blast the wall behind it, and crawl out
-    into the night.<br><br>
-    When your candle dies you must relight it — but the light always wakes
-    <i>something</i>. Run. Hide in the cupboards. Do not let it see you go in.</p>
+    Climb the ladders, find the <b>SPADE</b> and the <b>DYNAMITE</b> at opposite
+    ends of the shaft. Dig through the collapsed rock, blast the wall behind it,
+    and crawl out into the night.<br><br>
+    If your candle dies, <i>something</i> comes for you in the black — relight it
+    fast. And when you catch it standing in the dark ahead of you, do not get
+    close. It is already learning where you are. Run. Hide. Don't let it see
+    you go in.</p>
   <div class="keys">
-    <b>A / D</b> or <b>← →</b> &nbsp;move&nbsp;&nbsp;·&nbsp;&nbsp;
-    <b>E</b> interact / dig / hide&nbsp;&nbsp;·&nbsp;&nbsp;
-    <b>R</b> (hold) relight candle
+    <b>A / D</b> or <b>← →</b> move &nbsp;·&nbsp; <b>SPACE</b> jump &nbsp;·&nbsp;
+    <b>W / S</b> climb ladders &nbsp;·&nbsp; <b>E</b> interact / dig / hide
+    &nbsp;·&nbsp; <b>R</b> (hold) relight
   </div>
   <button id="startBtn">ENTER THE MINE</button>
 </div>
@@ -56,7 +58,7 @@
   <button id="againBtn">PLAY AGAIN</button>
 </div>
 
-<div class="tag">headphones recommended · v1.0</div>
+<div class="tag">headphones recommended · v2.0</div>
 
 <script>
 "use strict";
@@ -64,6 +66,8 @@
 const cv = document.getElementById('game');
 const ctx = cv.getContext('2d');
 let W = 0, H = 0, DPR = 1;
+const light = document.createElement('canvas');
+const lctx = light.getContext('2d');
 function resize(){
   DPR = Math.min(window.devicePixelRatio||1, 2);
   W = window.innerWidth; H = window.innerHeight;
@@ -72,14 +76,13 @@ function resize(){
   ctx.setTransform(DPR,0,0,DPR,0,0);
   light.width = W*DPR; light.height = H*DPR;
 }
-const light = document.createElement('canvas');
-const lctx = light.getContext('2d');
 window.addEventListener('resize', resize);
 
 //============================================================ UTIL
 const clamp=(v,a,b)=>v<a?a:v>b?b:v;
 const lerp=(a,b,t)=>a+(b-a)*t;
 const rnd=(a,b)=>a+Math.random()*(b-a);
+const dist2=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 function mulberry(seed){return function(){seed|=0;seed=seed+0x6D2B79F5|0;
   let t=Math.imul(seed^seed>>>15,1|seed);t^=t+Math.imul(t^t>>>7,61|t);
   return((t^t>>>14)>>>0)/4294967296;};}
@@ -161,7 +164,6 @@ function relightWhoosh(){
 }
 function jumpscare(){
   if(!AC) return;
-  // dissonant cluster + noise slam
   [110,116.5,233,247,330].forEach(f=>tone(f,1.6,'sawtooth',0.16));
   const src=AC.createBufferSource(); src.buffer=noiseBuf(1.2);
   const g=AC.createGain(); g.gain.value=0.5;
@@ -170,6 +172,15 @@ function jumpscare(){
   src.connect(lp); lp.connect(g); g.connect(master); src.start(); src.stop(now()+1.2);
   tone(1400,0.25,'square',0.18);
 }
+function jumpscareBoom(){
+  if(!AC) return;
+  const src=AC.createBufferSource(); src.buffer=noiseBuf(1.4);
+  const lp=AC.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=1400;
+  const g=AC.createGain(); g.gain.value=0.6;
+  g.gain.exponentialRampToValueAtTime(0.0001,now()+1.3);
+  src.connect(lp); lp.connect(g); g.connect(master); src.start(); src.stop(now()+1.4);
+  tone(50,1.0,'sine',0.3);
+}
 function startPanic(){
   if(!AC||panicTimer) return;
   const root=[55,55,58.27,49]; let i=0;
@@ -177,13 +188,12 @@ function startPanic(){
     const f=root[i%root.length];
     tone(f,0.18,'sawtooth',0.16);
     tone(f*2,0.10,'square',0.05);
-    // driving hat
     const src=AC.createBufferSource(); src.buffer=noiseBuf(0.05);
     const hp=AC.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=6000;
     const g=AC.createGain(); g.gain.value=0.06;
     g.gain.exponentialRampToValueAtTime(0.0001, now()+0.05);
     src.connect(hp); hp.connect(g); g.connect(master); src.start(); src.stop(now()+0.06);
-    if(i%2===0){ // kick
+    if(i%2===0){
       const o=AC.createOscillator(), kg=AC.createGain();
       o.frequency.setValueAtTime(120,now());
       o.frequency.exponentialRampToValueAtTime(40,now()+0.12);
@@ -211,7 +221,7 @@ function startHeart(){
       o2.connect(g2); g2.connect(master); o2.start(); o2.stop(now()+0.22);
     },180);
   };
-  b(); heartTimer=setInterval(b,820);
+  b(); heartTimer=setInterval(b,760);
 }
 function stopHeart(){ if(heartTimer){clearInterval(heartTimer);heartTimer=null;} }
 function footstep(){
@@ -224,15 +234,18 @@ function footstep(){
 }
 
 //============================================================ WORLD
-const WORLD = 72000;          // ~14x the original shaft (huge left + right)
-const START = WORLD/2;
-let groundY = 0, ceilY = 0;
-const game = {
-  state:'title', // title | play | chase | dead | won
-  t:0, camX:0, grain:0,
-};
+const WORLD = 14000;          // shorter shaft (verticality now carries it)
+const WORLD_H = 1550;         // tall world for multiple levels
+const START = WORLD*0.5;
+const GROUND = 1300;          // base floor surface (feet stand here)
+const CEIL = 50;
+// physics
+const G=0.62, JUMP=12.2, CLIMB=2.9;
+
+const game = { state:'title', t:0, camX:0, camY:0, grain:0 };
 const player = {
-  x:START, y:0, vx:0, facing:1, speed:2.35, run:3.35,
+  x:START, y:GROUND, vx:0, vy:0, facing:1,
+  speed:2.6, run:3.7, grounded:true, onLadder:false,
   hidden:false, hideSpot:null, walkPhase:0, stepT:0,
 };
 const candle = {
@@ -240,70 +253,96 @@ const candle = {
   outTimer:rnd(16,26), out:false, relight:0,
 };
 const inv = { spade:false, dynamite:false };
-const spade   = { x:900,        taken:false };          // near the left (escape) end
-const dynamite= { x:WORLD-900,  taken:false };          // far right end
-const rocks   = { x:150,  dug:false, dig:0, w:90 };   // collapsed pile (need spade)
-const wall    = { x:60,   blown:false, planted:false, fuse:0, w:46 }; // need dynamite
-// cupboards scattered the whole length of the shaft
-const cupboards = [];
+
+// ---- level geometry ----
+const platforms=[{x:-60,y:GROUND,w:WORLD+120}];   // base ground (w>WORLD marks it)
+const ladders=[];
+function addLedge(x,y,w){ platforms.push({x,y,w}); }
+function addLadder(x,top,bottom){ ladders.push({x,top,bottom}); }
+
+// spade high on the left, dynamite high on the right — both ladder-only
+addLedge(1300,760,320); addLadder(1345,760,GROUND);
+const spade   = { x:1460, y:760, taken:false };
+addLedge(WORLD-1120,740,340); addLadder(WORLD-1075,740,GROUND);
+const dynamite= { x:WORLD-950, y:740, taken:false };
+
+// scattered ledges + ladders for exploration / verticality
 (function(){
-  const r=mulberry(4242);
-  for(let x=1700; x<WORLD-1300; x+= 850+r()*650){
-    cupboards.push({x:Math.round(x), w:64});
+  const r=mulberry(31);
+  for(let x=2700;x<WORLD-1700;x+=950+r()*700){
+    const h=[1080,920,720][Math.floor(r()*3)];
+    const w=200+r()*220;
+    addLedge(x,h,w); addLadder(x+30,h,GROUND);
+    if(r()<0.4){ const h2=h-250-r()*110; addLedge(x+40,h2,w*0.7); addLadder(x+62,h2,h); }
   }
 })();
+
+const rocks = { x:150, dug:false, dig:0, w:90 };          // collapse (need spade)
+const wall  = { x:60,  blown:false, planted:false, fuse:0, w:46 }; // need dynamite
+
+// cupboards along the base floor (reliable hiding during a chase)
+const cupboards=[];
+(function(){
+  const r=mulberry(4242);
+  for(let x=1000;x<WORLD-900;x+=720+r()*560){
+    cupboards.push({x:Math.round(x), y:GROUND, w:64, seen:false, checked:false});
+  }
+})();
+
+// ---- creature ----
 const creature = {
-  active:false, x:0, vx:0, facing:1, speed:2.7, state:'idle',
-  giveUp:0, anim:0, grab:0, atSpot:null,
+  mode:'gone',  // gone | idle | hunt | chase | search | leave | grab
+  x:0, y:GROUND, facing:1, speed:2.6, anim:0,
+  grab:0, aware:0, searchT:0, passDir:1,
 };
-let chaseLevel=0;          // ramps difficulty
-let messageT=0, messageTxt='';
-let scareFlash=0;
-// procedural background detail
+let chaseLevel=0, idleSpawnTimer=rnd(20,38);
+let messageT=0, messageTxt='', scareFlash=0;
+
 let bgrocks=[];
 function buildBG(){
   bgrocks=[]; const r=mulberry(1337);
-  const N=Math.floor(WORLD*0.1);
+  const N=Math.floor(WORLD*0.07);
   for(let i=0;i<N;i++){
-    bgrocks.push({x:r()*WORLD, y:r(), s:6+r()*26, g:18+r()*46, layer:r()<0.5?0:1});
+    bgrocks.push({x:r()*WORLD, y:CEIL+r()*(WORLD_H-CEIL), s:6+r()*26, g:18+r()*40});
   }
 }
 buildBG();
 
 function minX(){
-  if(!rocks.dug) return rocks.x+rocks.w+30;   // blocked by collapse
-  if(!wall.blown) return wall.x+wall.w-4;      // blocked by wall (can reach to plant)
+  if(!rocks.dug) return rocks.x+rocks.w+30;
+  if(!wall.blown) return wall.x+wall.w-4;
   return 0;
 }
 function showMsg(t){ messageTxt=t; messageT=2.6; }
+function panicking(){ return game.state==='chase' || creature.mode==='hunt'; }
 
 //============================================================ INPUT
 const keys={};
-let eEdge=false;
+let eEdge=false, jumpEdge=false;
 window.addEventListener('keydown',e=>{
   const k=e.key.toLowerCase();
-  if(['arrowleft','arrowright','arrowup','arrowdown',' '].includes(k)) e.preventDefault();
-  if(!keys[k]) { if(k==='e') eEdge=true; }
+  if(['arrowleft','arrowright','arrowup','arrowdown',' ','w','a','s','d'].includes(k)) e.preventDefault();
+  if(!keys[k]){ if(k==='e') eEdge=true; if(k===' ') jumpEdge=true; }
   keys[k]=true;
 });
 window.addEventListener('keyup',e=>{ keys[e.key.toLowerCase()]=false; });
-
-function left(){return keys['a']||keys['arrowleft'];}
-function right(){return keys['d']||keys['arrowright'];}
-function relightHeld(){return keys['r'];}
+const mLeft  =()=>keys['a']||keys['arrowleft'];
+const mRight =()=>keys['d']||keys['arrowright'];
+const climbUp=()=>keys['w']||keys['arrowup'];
+const climbDn=()=>keys['s']||keys['arrowdown'];
+const relightHeld=()=>keys['r'];
 
 //============================================================ GAME FLOW
 function startGame(){
   initAudio(); if(AC.state==='suspended') AC.resume();
-  resetState();
-  startDrone();
-  game.state='play';
+  resetState(); startDrone(); game.state='play';
   document.getElementById('title').classList.add('hidden');
   document.getElementById('end').classList.add('hidden');
 }
 function resetState(){
-  game.state='play'; game.t=0; game.camX=0;
-  player.x=START; player.vx=0; player.facing=1; player.hidden=false;
+  game.state='play'; game.t=0; game.camX=0; game.camY=0;
+  player.x=START; player.y=GROUND; player.vx=0; player.vy=0; player.facing=1;
+  player.grounded=true; player.onLadder=false; player.hidden=false;
   player.hideSpot=null; player.walkPhase=0;
   candle.lit=true; candle.intensity=1; candle.target=1; candle.out=false;
   candle.outTimer=rnd(16,26); candle.relight=0; candle.flick=0;
@@ -312,8 +351,9 @@ function resetState(){
   rocks.dug=false; rocks.dig=0;
   wall.blown=false; wall.planted=false; wall.fuse=0;
   cupboards.forEach(c=>{ c.seen=false; c.checked=false; });
-  creature.active=false; creature.state='idle'; creature.grab=0; creature.atSpot=null;
-  chaseLevel=0; messageT=0; scareFlash=0;
+  creature.mode='gone'; creature.aware=0; creature.grab=0;
+  chaseLevel=0; idleSpawnTimer=rnd(20,38);
+  messageT=0; scareFlash=0;
   stopPanic(); stopHeart();
 }
 function endGame(win){
@@ -338,78 +378,86 @@ document.getElementById('againBtn').onclick=()=>{
   resetState(); startDrone(); game.state='play';
 };
 
-function triggerChase(){
-  game.state='chase';
+// the candle dies -> it comes for you in the dark
+function triggerHunt(){
+  const c=creature;
+  if(c.mode==='gone'){
+    const dir=Math.random()<0.5?1:-1;
+    c.x=clamp(player.x+dir*rnd(480,760), minX()+60, WORLD-60);
+    c.y=GROUND;
+  }
+  if(c.mode!=='chase') c.mode='hunt';
+  c.aware=1; startHeart();
+}
+// it spots you / gets close enough -> full panic chase
+function startChase(){
+  if(game.state==='chase') return;
+  game.state='chase'; creature.mode='chase';
+  startPanic(); stopHeart();
+  scareFlash=0.7; jumpscare();
   chaseLevel++;
-  scareFlash=1;
-  jumpscare();
-  startPanic();
-  creature.active=true;
-  creature.state='chase';
-  creature.grab=0; creature.atSpot=null;
-  creature.speed = 2.55 + chaseLevel*0.18;
-  creature.giveUp = 16 + chaseLevel*1.5;
-  // spawn behind the player on the longer side, far enough to react
-  const dist = 560 - chaseLevel*25;
-  if(player.x > WORLD/2){ creature.x = player.x + dist; creature.facing=-1; }
-  else { creature.x = player.x - dist; creature.facing=1; }
-  creature.x = clamp(creature.x, minX()+30, WORLD-30);
-  showMsg('RUN. HIDE.');
+  creature.speed = 2.55 + chaseLevel*0.14;
+  creature.giveUp = 15 + Math.random()*5;
+  showMsg('IT SEES YOU — RUN!');
 }
 function endChase(){
-  game.state='play';
-  creature.active=false; creature.state='idle';
-  stopPanic(); stopHeart();
-  candle.outTimer = rnd(20,34);
-  if(player.hidden){ /* stay hidden until they leave */ }
+  creature.mode='gone'; creature.aware=0;
+  game.state='play'; stopPanic(); stopHeart();
+  candle.outTimer=rnd(22,40); idleSpawnTimer=rnd(20,40);
+}
+// sometimes it is just standing in the dark in your path
+function spawnIdleAhead(){
+  const dir=player.facing;
+  let x=player.x+dir*rnd(850,1500);
+  if(x<minX()+200||x>WORLD-200) x=player.x-dir*rnd(850,1400);
+  creature.mode='idle';
+  creature.x=clamp(x,minX()+80,WORLD-80); creature.y=GROUND;
+  creature.aware=0; creature.facing=Math.sign(player.x-creature.x)||1;
+  creak();
 }
 
 //============================================================ INTERACT
-function nearest(arr, getx, range){
+function nearCup(range){
   let best=null,bd=range;
-  for(const o of arr){const d=Math.abs(getx(o)-player.x); if(d<bd){bd=d;best=o;}}
+  for(const c of cupboards){
+    if(Math.abs(c.y-player.y)>70) continue;
+    const d=Math.abs(c.x-player.x); if(d<bd){bd=d;best=c;}
+  }
   return best;
 }
 function tryInteract(){
-  // hide / unhide
   if(player.hidden){
-    // leave hiding
     const c=player.hideSpot;
-    // if creature is close & active, leaving = caught
-    if(creature.active && Math.abs(creature.x-c.x)<260){
-      creature.state='chase'; creature.atSpot=null;
-      showMsg('IT SAW YOU!');
+    if((creature.mode==='chase'||creature.mode==='hunt') && Math.abs(creature.x-c.x)<280){
+      creature.mode='chase'; if(game.state!=='chase'){game.state='chase';startPanic();}
+      c.checked=false; showMsg('IT SAW YOU!');
     }
     player.hidden=false; player.hideSpot=null; stopHeart();
     return;
   }
-  const cup = nearest(cupboards, c=>c.x, 56);
+  const cup=nearCup(56);
   if(cup){
-    player.hidden=true; player.hideSpot=cup; player.vx=0;
+    player.hidden=true; player.hideSpot=cup; player.vx=0; player.vy=0;
     startHeart();
-    // determine if the creature saw the entry
-    if(creature.active){
-      const d=Math.abs(creature.x-player.x);
-      const facingMe = (creature.x>player.x && creature.facing<0) ||
-                       (creature.x<player.x && creature.facing>0);
-      cup.seen = (d<560 && facingMe) || d<150;
+    if(creature.mode!=='gone'){
+      const d=dist2(creature,player);
+      const facingMe=(creature.x>player.x&&creature.facing<0)||(creature.x<player.x&&creature.facing>0);
+      cup.seen=(d<560&&facingMe)||d<160;
+      if(creature.mode==='idle') cup.seen = cup.seen || creature.aware>0.6;
     } else cup.seen=false;
     cup.checked=false;
     return;
   }
-  // pick up spade
-  if(!spade.taken && Math.abs(spade.x-player.x)<55){
+  if(!spade.taken && Math.abs(spade.x-player.x)<55 && Math.abs(spade.y-player.y)<70){
     spade.taken=true; inv.spade=true; tone(330,0.2,'triangle',0.1);
     showMsg('Picked up the SPADE.'); return;
   }
-  // pick up dynamite
-  if(!dynamite.taken && Math.abs(dynamite.x-player.x)<55){
+  if(!dynamite.taken && Math.abs(dynamite.x-player.x)<55 && Math.abs(dynamite.y-player.y)<70){
     dynamite.taken=true; inv.dynamite=true; tone(330,0.2,'triangle',0.1);
     showMsg('Picked up the DYNAMITE.'); return;
   }
-  // plant dynamite at wall (rocks already dug)
-  if(rocks.dug && !wall.blown && !wall.planted &&
-     Math.abs(wall.x+wall.w-player.x)<70){
+  const onGround=Math.abs(player.y-GROUND)<60;
+  if(rocks.dug && !wall.blown && !wall.planted && onGround && Math.abs(wall.x+wall.w-player.x)<70){
     if(!inv.dynamite){ showMsg('You need DYNAMITE.'); return; }
     wall.planted=true; wall.fuse=3.2; showMsg('Fuse lit! Back away!');
     tone(220,0.3,'sawtooth',0.1); return;
@@ -427,112 +475,121 @@ function update(dt){
   game.t+=dt; game.grain=(game.grain+dt)%1;
   if(messageT>0) messageT-=dt;
   if(scareFlash>0) scareFlash=Math.max(0,scareFlash-dt*1.6);
+  if(game.state!=='play' && game.state!=='chase') return;
 
-  if(game.state!=='play' && game.state!=='chase'){ return; }
-
-  // ---- interactions edge ----
   if(eEdge){ eEdge=false; tryInteract(); }
-
-  // ---- candle ----
   updateCandle(dt);
 
-  // ---- ambient spooky events (calm only) ----
   if(game.state==='play'){
     if(Math.random()<dt*0.55) drip();
     if(Math.random()<dt*0.10) creak();
     if(Math.random()<dt*0.05) whisper();
-  }
-
-  // ---- movement (blocked while hidden / digging / planting fuse) ----
-  let moving=false;
-  if(!player.hidden){
-    let sp = (game.state==='chase')?player.run:player.speed;
-    // digging holds you in place
-    const atRocks = inv.spade && !rocks.dug &&
-                    Math.abs(rocks.x+rocks.w-player.x)<70;
-    let digging=false;
-    if(atRocks && keys['e']){
-      digging=true; rocks.dig=Math.min(1,rocks.dig+dt*0.4);
-      if(Math.random()<dt*6) footstep();
-      if(rocks.dig>=1){ rocks.dug=true; showMsg('You dug through the rubble.');
-        tone(140,0.4,'square',0.1); }
-    }
-    if(!digging){
-      if(left()){ player.vx=-sp; player.facing=-1; moving=true; }
-      else if(right()){ player.vx=sp; player.facing=1; moving=true; }
-      else player.vx=0;
-      player.x+=player.vx;
+    if(candle.lit && creature.mode==='gone'){
+      idleSpawnTimer-=dt;
+      if(idleSpawnTimer<=0){ spawnIdleAhead(); idleSpawnTimer=rnd(24,42); }
     }
   }
-  player.x=clamp(player.x, minX()+8, WORLD-20);
 
-  // step animation + sound
-  if(moving){
-    player.walkPhase+=dt*10;
-    player.stepT-=dt;
-    if(player.stepT<=0){ footstep(); player.stepT=0.32; }
-  }
+  updatePlayer(dt);
 
-  // ---- win check ----
-  if(wall.blown && player.x<=minX()+12){ endGame(true); return; }
+  if(wall.blown && player.x<=minX()+14 && Math.abs(player.y-GROUND)<90){ endGame(true); return; }
 
-  // ---- fuse / explosion ----
   if(wall.planted && !wall.blown){
     wall.fuse-=dt;
-    if(wall.fuse<=0){
-      wall.blown=true;
-      // explosion sound + flash
-      scareFlash=1;
-      jumpscareBoom();
-      showMsg('The wall is open! GET OUT!');
-    }
+    if(wall.fuse<=0){ wall.blown=true; scareFlash=1; jumpscareBoom();
+      showMsg('The wall is open! GET OUT!'); }
   }
 
-  // ---- creature ----
-  if(game.state==='chase') updateCreature(dt);
+  if(creature.mode!=='gone') updateCreature(dt);
 }
 
-function jumpscareBoom(){
-  if(!AC) return;
-  const src=AC.createBufferSource(); src.buffer=noiseBuf(1.4);
-  const lp=AC.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=1400;
-  const g=AC.createGain(); g.gain.value=0.6;
-  g.gain.exponentialRampToValueAtTime(0.0001,now()+1.3);
-  src.connect(lp); lp.connect(g); g.connect(master); src.start(); src.stop(now()+1.4);
-  tone(50,1.0,'sine',0.3);
+function updatePlayer(dt){
+  if(player.hidden){ player.vx=0; player.vy=0; return; }
+
+  // dig (hold E at the rubble with the spade)
+  const onGround=Math.abs(player.y-GROUND)<60;
+  if(inv.spade && !rocks.dug && onGround && Math.abs((rocks.x+rocks.w)-player.x)<70 && keys['e']){
+    rocks.dig=Math.min(1,rocks.dig+dt*0.4);
+    if(Math.random()<dt*6) footstep();
+    if(rocks.dig>=1 && !rocks.dug){ rocks.dug=true; showMsg('You dug through the rubble.');
+      tone(140,0.4,'square',0.1); }
+    jumpEdge=false; return;
+  }
+
+  // ladder overlap?
+  let onL=null;
+  for(const l of ladders){
+    if(Math.abs(player.x-l.x)<18 && player.y<=l.bottom+6 && player.y>=l.top-30){ onL=l; break; }
+  }
+  let moving=false;
+
+  if(onL && (climbUp()||climbDn()||player.onLadder)){
+    player.onLadder=true; player.vy=0; player.grounded=false;
+    if(climbUp()) player.y-=CLIMB; else if(climbDn()) player.y+=CLIMB;
+    player.y=clamp(player.y,onL.top,onL.bottom);
+    if(mLeft()){ player.x-=player.speed*0.7; player.facing=-1; moving=true; }
+    else if(mRight()){ player.x+=player.speed*0.7; player.facing=1; moving=true; }
+    if(jumpEdge){ player.onLadder=false; player.vy=-JUMP*0.7; }
+  } else {
+    player.onLadder=false;
+    const sp=panicking()?player.run:player.speed;
+    if(mLeft()){ player.vx=-sp; player.facing=-1; moving=true; }
+    else if(mRight()){ player.vx=sp; player.facing=1; moving=true; }
+    else player.vx=0;
+    player.x+=player.vx;
+    if(jumpEdge && player.grounded){ player.vy=-JUMP; player.grounded=false; footstep(); }
+    player.vy+=G;
+    const prevFeet=player.y;
+    player.y+=player.vy;
+    player.grounded=false;
+    if(player.vy>=0){
+      for(const p of platforms){
+        if(player.x>p.x-3 && player.x<p.x+p.w+3 &&
+           prevFeet<=p.y+(player.vy+3) && player.y>=p.y){
+          player.y=p.y; player.vy=0; player.grounded=true;
+        }
+      }
+    }
+    if(player.y>GROUND){ player.y=GROUND; player.vy=0; player.grounded=true; }
+  }
+  jumpEdge=false;
+  player.x=clamp(player.x, minX()+8, WORLD-20);
+
+  if(moving && (player.grounded||player.onLadder)){
+    player.walkPhase+=dt*10; player.stepT-=dt;
+    if(player.stepT<=0){ footstep(); player.stepT=0.32; }
+  }
 }
 
 function updateCandle(dt){
-  // flicker
   candle.flick=lerp(candle.flick, rnd(-1,1), 0.3);
   if(candle.lit){
     candle.target = 1 + candle.flick*0.06;
-    // periodic deeper flicker dips for atmosphere
     if(Math.random()<dt*0.6) candle.target*=rnd(0.6,0.85);
     candle.intensity=lerp(candle.intensity, candle.target, 0.25);
-
     if(game.state==='play'){
       candle.outTimer-=dt;
       if(candle.outTimer<=0){
-        candle.lit=false; candle.out=true;
-        candle.relight=0;
-        whisper(); creak();
-        tone(70,1.2,'sine',0.18);
-        showMsg('Your candle is OUT. Hold R to relight.');
+        candle.lit=false; candle.out=true; candle.relight=0;
+        whisper(); creak(); tone(70,1.2,'sine',0.18);
+        showMsg('Your candle is OUT — it comes in the dark. Hold R.');
+        triggerHunt();
       }
     }
   } else {
-    // near darkness
     candle.intensity=lerp(candle.intensity, 0.07, 0.2);
     if(relightHeld()){
-      candle.relight+=dt*0.9;
+      candle.relight+=dt*0.85;
       if(Math.random()<dt*4) relightWhoosh();
       if(candle.relight>=1){
-        candle.lit=true; candle.out=false; candle.relight=0;
-        candle.intensity=0.3;
-        relightWhoosh();
-        // the light wakes something
-        triggerChase();
+        candle.lit=true; candle.out=false; candle.relight=0; candle.intensity=0.3;
+        relightWhoosh(); stopHeart();
+        // relighting does NOT always escalate
+        if(creature.mode==='hunt'){
+          if(dist2(creature,player)<430) startChase();
+          else { creature.mode='idle'; creature.aware=0.4; showMsg('It slips back into the dark...'); }
+        }
+        candle.outTimer=rnd(22,40);
       }
     } else {
       candle.relight=Math.max(0,candle.relight-dt*0.5);
@@ -540,234 +597,214 @@ function updateCandle(dt){
   }
 }
 
+function creatureMoveToward(tx,ty,sp){
+  const dx=tx-creature.x; creature.facing=Math.sign(dx)||creature.facing;
+  if(Math.abs(dx)>4) creature.x+=Math.sign(dx)*sp;
+  const dy=ty-creature.y;
+  if(Math.abs(dy)>4) creature.y+=Math.sign(dy)*Math.min(sp*0.8,Math.abs(dy));
+}
 function updateCreature(dt){
-  creature.anim+=dt;
-  const c=creature;
+  const c=creature; c.anim+=dt;
+  if(c.grab>0){ c.grab-=dt; if(c.grab<=0) endGame(false); return; }
 
-  // grabbing animation -> death
-  if(c.grab>0){
-    c.grab-=dt;
-    if(c.grab<=0){ endGame(false); }
+  // hidden: hunt & chase both close in on the cupboard
+  if(player.hidden && (c.mode==='chase'||c.mode==='hunt')){
+    const spot=player.hideSpot;
+    creatureMoveToward(spot.x,spot.y,c.speed);
+    if(Math.abs(c.x-spot.x)<40 && Math.abs(c.y-spot.y)<90){
+      if(spot.seen){ c.grab=0.7; jumpscare(); showMsg('IT FOUND YOU.'); }
+      else if(!spot.checked){ spot.checked=true; c.mode='search';
+        c.searchT=4.5+Math.random()*2.5; c.passDir=c.facing; stopPanic(); }
+    }
     return;
   }
 
-  if(c.state==='chase'){
-    // chase the player's last visible position
-    const tx = player.hidden ? (player.hideSpot?player.hideSpot.x:player.x) : player.x;
-    const dir = Math.sign(tx-c.x)||c.facing;
-    c.facing=dir;
-    c.x += dir*c.speed;
+  if(c.mode==='hunt'){
+    creatureMoveToward(player.x,player.y,c.speed*0.95);
+    if(dist2(c,player)<46){ c.grab=0.5; jumpscare(); showMsg('GRABBED!'); }
+    if(Math.random()<dt*0.5) whisper();
+    return;
+  }
 
-    if(!player.hidden){
-      // caught in the open
-      if(Math.abs(c.x-player.x)<46){ c.grab=0.5; jumpscare(); showMsg('GRABBED!'); }
+  if(c.mode==='idle'){
+    const d=dist2(c,player);
+    if(d<175){ startChase(); return; }
+    const sameLevel=Math.abs(c.y-player.y)<130;
+    const los = candle.lit && d<820 && sameLevel;
+    if(los){
+      c.aware += dt*(0.11 + 0.26*(1-d/820));   // grows even at fixed distance
+      c.facing = Math.sign(player.x-c.x)||c.facing;
+      if(c.aware>0.5 && Math.random()<dt*0.9) creak();
     } else {
-      // player is hidden -> creature heads to the cupboard
-      const spot=player.hideSpot;
-      if(spot && Math.abs(c.x-spot.x)<40){
-        if(spot.seen){
-          // it knew -> reach in and grab
-          c.grab=0.7; c.atSpot=spot; jumpscare(); showMsg('IT FOUND YOU.');
-        } else if(!spot.checked){
-          spot.checked=true;
-          // didn't see -> pass by, then start giving up
-          c.state='search'; c.searchT=4.5+Math.random()*2.5;
-          c.passDir=c.facing;
-        }
-      }
+      c.aware -= dt*0.16;
     }
-    c.giveUp-=dt*0.4; // slowly tires even while chasing
-  }
-  else if(c.state==='search'){
-    // wander past / around the hideout, then leave
-    c.searchT-=dt;
-    // pace back and forth near last spot
-    const spot=player.hideSpot||{x:c.x};
-    if(Math.abs(c.x-spot.x)>180) c.passDir=-c.passDir;
-    c.facing=c.passDir; c.x+=c.passDir*(c.speed*0.5);
-    if(Math.random()<dt*0.6) creak();
-    if(c.searchT<=0){
-      c.state='leave';
-    }
-  }
-  else if(c.state==='leave'){
-    // walk off and despawn; chase ends
-    const dir = c.x>WORLD/2?1:-1; c.facing=dir; c.x+=dir*c.speed*1.1;
-    if(c.x<minX()-40 || c.x>WORLD+40){ endChase(); }
+    c.aware=clamp(c.aware,0,1);
+    if(c.aware>=1){ startChase(); }
+    return;
   }
 
-  c.x=clamp(c.x, minX()-60, WORLD+60);
+  if(c.mode==='chase'){
+    creatureMoveToward(player.x,player.y,c.speed);
+    if(dist2(c,player)<46){ c.grab=0.5; jumpscare(); showMsg('GRABBED!'); }
+    c.giveUp-=dt;
+    if(c.giveUp<=0){ c.mode='search'; c.searchT=3.5; c.passDir=c.facing; stopPanic(); }
+    return;
+  }
+
+  if(c.mode==='search'){
+    c.searchT-=dt;
+    const sx=player.hideSpot?player.hideSpot.x:c.x;
+    if(Math.abs(c.x-sx)>200) c.passDir=-c.passDir;
+    c.facing=c.passDir; c.x+=c.passDir*c.speed*0.5;
+    if(Math.random()<dt*0.6) creak();
+    if(c.searchT<=0) c.mode='leave';
+    return;
+  }
+
+  if(c.mode==='leave'){
+    const dir=c.x>player.x?1:-1; c.facing=dir; c.x+=dir*c.speed*1.1;
+    if(c.x<minX()-80 || c.x>WORLD+80) endChase();
+    return;
+  }
 }
 
 //============================================================ RENDER
 function render(){
   ctx.clearRect(0,0,W,H);
-  groundY = H*0.78; ceilY=H*0.14;
-  game.camX = clamp(player.x - W/2, 0, WORLD - W);
-  const camX=game.camX;
-
-  // sky/void already black. draw world
-  ctx.save(); ctx.translate(-camX,0);
+  game.camX=clamp(player.x-W/2, 0, Math.max(0,WORLD-W));
+  game.camY=clamp((player.y-30)-H*0.55, 0, Math.max(0,WORLD_H-H));
+  ctx.save(); ctx.translate(-game.camX,-game.camY);
   drawTunnel();
   drawStructures();
-  if(creature.active) drawCreature();
+  if(creature.mode!=='gone') drawCreature();
   drawItems();
-  if(!player.hidden) drawPlayer();
-  else drawCupboardFront(player.hideSpot, true);
+  if(!player.hidden) drawPlayer(); else drawCupboardFront(player.hideSpot,true);
   ctx.restore();
 
-  applyDarkness();
-  drawVignette();
-  drawGrain();
-  if(scareFlash>0){
-    ctx.fillStyle='rgba(255,255,255,'+(scareFlash*0.5)+')';
-    ctx.fillRect(0,0,W,H);
-  }
+  applyDarkness(); drawVignette(); drawGrain();
+  if(scareFlash>0){ ctx.fillStyle='rgba(255,255,255,'+(scareFlash*0.5)+')'; ctx.fillRect(0,0,W,H); }
   drawHUD();
 }
 
 function drawTunnel(){
-  // visible x-range (world space) for culling
-  const vx0=game.camX-80, vx1=game.camX+W+80;
-  // floor
-  ctx.fillStyle='#0e0e0e';
-  ctx.fillRect(vx0,groundY,vx1-vx0,H-groundY);
-  // ceiling
-  ctx.fillStyle='#0a0a0a';
-  ctx.fillRect(vx0,0,vx1-vx0,ceilY);
-  // back wall band
-  const grd=ctx.createLinearGradient(0,ceilY,0,groundY);
-  grd.addColorStop(0,'#101010'); grd.addColorStop(0.5,'#161616'); grd.addColorStop(1,'#0d0d0d');
-  ctx.fillStyle=grd; ctx.fillRect(vx0,ceilY,vx1-vx0,groundY-ceilY);
-  // procedural rocks on walls (culled)
+  const camX=game.camX, camY=game.camY;
+  const vx0=camX-80, vx1=camX+W+80, vy0=camY-80, vy1=camY+H+80;
+  const grd=ctx.createLinearGradient(0,CEIL,0,WORLD_H);
+  grd.addColorStop(0,'#0c0c0c'); grd.addColorStop(0.5,'#151515'); grd.addColorStop(1,'#0b0b0b');
+  ctx.fillStyle=grd; ctx.fillRect(vx0,Math.max(0,vy0),vx1-vx0, vy1-Math.max(0,vy0));
   for(const b of bgrocks){
-    if(b.x<vx0||b.x>vx1) continue;
-    const yy = b.layer? lerp(ceilY-4,ceilY+40,b.y) : lerp(groundY-30,groundY+10,b.y);
+    if(b.x<vx0||b.x>vx1||b.y<vy0||b.y>vy1) continue;
     ctx.fillStyle='rgb('+b.g+','+b.g+','+b.g+')';
-    ctx.beginPath(); ctx.ellipse(b.x, yy, b.s, b.s*0.7, 0,0,7); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(b.x,b.y,b.s,b.s*0.7,0,0,7); ctx.fill();
   }
-  // support beams (culled)
-  ctx.strokeStyle='#1c1c1c'; ctx.lineWidth=10;
-  let bx0=Math.floor((vx0-120)/380)*380+120;
-  for(let x=Math.max(120,bx0); x<vx1 && x<WORLD; x+=380){
+  for(const p of platforms){
+    if(p.x>vx1||p.x+p.w<vx0) continue;
+    if(p.w>WORLD){ // base floor
+      ctx.fillStyle='#0e0e0e'; ctx.fillRect(vx0,GROUND,vx1-vx0,WORLD_H-GROUND);
+      ctx.strokeStyle='#242424'; ctx.lineWidth=3;
+      ctx.beginPath(); ctx.moveTo(vx0,GROUND+24); ctx.lineTo(vx1,GROUND+24);
+      ctx.moveTo(vx0,GROUND+34); ctx.lineTo(vx1,GROUND+34); ctx.stroke();
+      ctx.strokeStyle='#1a1a1a'; ctx.lineWidth=6;
+      let tx0=Math.floor(vx0/40)*40;
+      for(let x=Math.max(0,tx0);x<vx1;x+=40){ ctx.beginPath();
+        ctx.moveTo(x,GROUND+22); ctx.lineTo(x,GROUND+36); ctx.stroke(); }
+    } else {
+      ctx.fillStyle='#1b1b1b'; ctx.fillRect(p.x,p.y,p.w,20);
+      ctx.fillStyle='#0d0d0d'; ctx.fillRect(p.x,p.y+20,p.w,8);
+      const r=mulberry(Math.floor(p.x)); ctx.fillStyle='#262626';
+      for(let i=0;i<p.w/40;i++){ const rx=p.x+r()*p.w;
+        ctx.beginPath(); ctx.arc(rx,p.y+2,3+r()*5,Math.PI,0); ctx.fill(); }
+      ctx.strokeStyle='#161616'; ctx.lineWidth=6;
+      ctx.beginPath();
+      ctx.moveTo(p.x+12,p.y+20); ctx.lineTo(p.x+12,Math.min(GROUND,p.y+170));
+      ctx.moveTo(p.x+p.w-12,p.y+20); ctx.lineTo(p.x+p.w-12,Math.min(GROUND,p.y+170));
+      ctx.stroke();
+    }
+  }
+  for(const l of ladders){
+    if(l.x<vx0-20||l.x>vx1+20) continue;
+    ctx.strokeStyle='#3a3a3a'; ctx.lineWidth=4;
     ctx.beginPath();
-    ctx.moveTo(x,groundY); ctx.lineTo(x,ceilY+8);
-    ctx.moveTo(x+260,groundY); ctx.lineTo(x+260,ceilY+8);
-    ctx.moveTo(x-6,ceilY+8); ctx.lineTo(x+266,ceilY+8);
-    ctx.stroke();
+    ctx.moveTo(l.x-11,l.top); ctx.lineTo(l.x-11,l.bottom);
+    ctx.moveTo(l.x+11,l.top); ctx.lineTo(l.x+11,l.bottom); ctx.stroke();
+    ctx.lineWidth=3;
+    for(let y=l.top+12;y<l.bottom;y+=18){ ctx.beginPath();
+      ctx.moveTo(l.x-11,y); ctx.lineTo(l.x+11,y); ctx.stroke(); }
   }
-  // rail track on floor (visible segment only)
-  ctx.strokeStyle='#242424'; ctx.lineWidth=3;
-  ctx.beginPath(); ctx.moveTo(vx0,groundY+24); ctx.lineTo(vx1,groundY+24);
-  ctx.moveTo(vx0,groundY+34); ctx.lineTo(vx1,groundY+34); ctx.stroke();
-  ctx.strokeStyle='#1a1a1a'; ctx.lineWidth=6;
-  let tx0=Math.floor(vx0/40)*40;
-  for(let x=Math.max(0,tx0); x<vx1; x+=40){ ctx.beginPath();
-    ctx.moveTo(x,groundY+22); ctx.lineTo(x,groundY+36); ctx.stroke(); }
 }
 
 function drawStructures(){
-  // cupboards (culled)
-  const vx0=game.camX-120, vx1=game.camX+W+120;
+  const vx0=game.camX-160, vx1=game.camX+W+160;
   for(const c of cupboards){ if(c.x<vx0||c.x>vx1) continue; drawCupboardFront(c,false); }
-  // collapsed rocks
+  const top=GROUND-300;
   if(!rocks.dug){
     const r=mulberry(99);
-    ctx.fillStyle='#2a2a2a';
-    for(let i=0;i<40;i++){
-      const px=rocks.x + r()*rocks.w*1.1;
-      const py=lerp(ceilY+10,groundY+10, r());
-      const s=10+r()*26;
-      const shade=30+r()*40;
+    for(let i=0;i<46;i++){
+      const px=rocks.x-10 + r()*(rocks.w*1.3);
+      const py=lerp(top,GROUND+6,r());
+      const s=10+r()*26, shade=28+r()*40;
       ctx.fillStyle='rgb('+shade+','+shade+','+shade+')';
       ctx.beginPath(); ctx.ellipse(px,py,s,s*0.8,0,0,7); ctx.fill();
     }
-    // dig progress carve
     if(rocks.dig>0){
-      ctx.fillStyle='#000';
-      const h=(groundY-ceilY)*rocks.dig;
-      ctx.beginPath();
-      ctx.ellipse(rocks.x+rocks.w*0.5, groundY-h*0.4, 26+rocks.dig*30, h*0.5,0,0,7);
-      ctx.fill();
+      ctx.fillStyle='#000'; const h=(GROUND-top)*rocks.dig;
+      ctx.beginPath(); ctx.ellipse(rocks.x+rocks.w*0.5,GROUND-h*0.45,26+rocks.dig*30,h*0.5,0,0,7); ctx.fill();
     }
   } else {
-    // dug opening -> reveals wall behind
-    ctx.fillStyle='#000';
-    ctx.fillRect(rocks.x-20, ceilY+6, rocks.w+60, groundY-ceilY-6);
+    ctx.fillStyle='#000'; ctx.fillRect(rocks.x-20,top,rocks.w+60,GROUND-top+4);
   }
-  // sealing wall (behind the rocks, further left)
   if(!wall.blown){
-    ctx.fillStyle='#202020';
-    ctx.fillRect(wall.x, ceilY+6, wall.w, groundY-ceilY-6);
-    // brick lines
+    ctx.fillStyle='#202020'; ctx.fillRect(wall.x,top,wall.w,GROUND-top);
     ctx.strokeStyle='#111'; ctx.lineWidth=2;
-    for(let y=ceilY+18;y<groundY;y+=20){
-      ctx.beginPath(); ctx.moveTo(wall.x,y); ctx.lineTo(wall.x+wall.w,y); ctx.stroke();
-    }
+    for(let y=top+12;y<GROUND;y+=20){ ctx.beginPath();
+      ctx.moveTo(wall.x,y); ctx.lineTo(wall.x+wall.w,y); ctx.stroke(); }
     if(wall.planted){
-      // dynamite bundle + sputtering fuse
-      ctx.fillStyle='#3a3a3a';
-      ctx.fillRect(wall.x+wall.w-6, groundY-60, 12, 34);
+      ctx.fillStyle='#3a3a3a'; ctx.fillRect(wall.x+wall.w-6,GROUND-60,12,34);
       const sp=(Math.sin(game.t*40)*0.5+0.5);
       ctx.fillStyle='rgb('+(180+sp*70)+','+(180+sp*70)+','+(180+sp*70)+')';
-      ctx.beginPath(); ctx.arc(wall.x+wall.w, groundY-64, 3+sp*2,0,7); ctx.fill();
+      ctx.beginPath(); ctx.arc(wall.x+wall.w,GROUND-64,3+sp*2,0,7); ctx.fill();
     }
   } else {
-    // opening to the outside (faint moonlight glow = light gray)
     const g=ctx.createLinearGradient(wall.x-40,0,wall.x+wall.w,0);
     g.addColorStop(0,'#3a3a3a'); g.addColorStop(1,'#000');
-    ctx.fillStyle=g;
-    ctx.fillRect(wall.x-60, ceilY+6, wall.w+70, groundY-ceilY-6);
-    ctx.fillStyle='#000';
-    ctx.fillRect(0, ceilY+6, wall.x-30, groundY-ceilY-6);
+    ctx.fillStyle=g; ctx.fillRect(wall.x-60,top,wall.w+70,GROUND-top);
+    ctx.fillStyle='#000'; ctx.fillRect(wall.x-260,top,200,GROUND-top);
   }
 }
 
 function drawCupboardFront(c,occupied){
   if(!c) return;
-  const x=c.x-c.w/2, y=groundY-150, w=c.w, h=150;
-  ctx.fillStyle='#161616';
-  ctx.fillRect(x,y,w,h);
-  ctx.strokeStyle='#2c2c2c'; ctx.lineWidth=3;
-  ctx.strokeRect(x+2,y+2,w-4,h-4);
-  // doors
+  const x=c.x-c.w/2, y=c.y-150, w=c.w, h=150;
+  ctx.fillStyle='#161616'; ctx.fillRect(x,y,w,h);
+  ctx.strokeStyle='#2c2c2c'; ctx.lineWidth=3; ctx.strokeRect(x+2,y+2,w-4,h-4);
   ctx.strokeStyle='#0b0b0b'; ctx.lineWidth=2;
   ctx.beginPath(); ctx.moveTo(c.x,y+4); ctx.lineTo(c.x,y+h-4); ctx.stroke();
-  // handles
   ctx.fillStyle='#3a3a3a';
   ctx.fillRect(c.x-7,y+h/2-3,4,12); ctx.fillRect(c.x+3,y+h/2-3,4,12);
   if(occupied){
-    // slatted view: two eyes peeking
-    ctx.fillStyle='#000';
-    ctx.fillRect(x+6,y+30,w-12,h-50);
+    ctx.fillStyle='#000'; ctx.fillRect(x+6,y+30,w-12,h-50);
     const blink=(Math.sin(game.t*2)>0.96)?0:1;
-    if(blink){
-      ctx.fillStyle='#cfcfcf';
-      ctx.fillRect(c.x-16,y+h/2-6,8,4);
-      ctx.fillRect(c.x+8,y+h/2-6,8,4);
-    }
+    if(blink){ ctx.fillStyle='#cfcfcf';
+      ctx.fillRect(c.x-16,y+h/2-6,8,4); ctx.fillRect(c.x+8,y+h/2-6,8,4); }
   }
 }
 
 function drawItems(){
   if(!spade.taken){
-    const y=groundY-12+Math.sin(game.t*2)*2;
+    const y=spade.y-12+Math.sin(game.t*2)*2;
     ctx.save(); ctx.translate(spade.x,y); ctx.rotate(-0.5);
-    ctx.fillStyle='#888'; ctx.fillRect(-3,-44,6,40); // handle
-    ctx.fillStyle='#cfcfcf'; ctx.fillRect(-10,-6,20,16); // blade
-    ctx.restore();
-    glowMark(spade.x, y-30);
+    ctx.fillStyle='#888'; ctx.fillRect(-3,-44,6,40);
+    ctx.fillStyle='#cfcfcf'; ctx.fillRect(-10,-6,20,16); ctx.restore();
+    glowMark(spade.x,y-30);
   }
   if(!dynamite.taken){
-    const y=groundY-20+Math.sin(game.t*2+1)*2;
+    const y=dynamite.y-20+Math.sin(game.t*2+1)*2;
     ctx.fillStyle='#9a9a9a';
-    ctx.fillRect(dynamite.x-12,y-8,8,22);
-    ctx.fillRect(dynamite.x-2,y-8,8,22);
-    ctx.fillRect(dynamite.x+8,y-8,8,22);
+    ctx.fillRect(dynamite.x-12,y-8,8,22); ctx.fillRect(dynamite.x-2,y-8,8,22); ctx.fillRect(dynamite.x+8,y-8,8,22);
     ctx.fillStyle='#ddd'; ctx.fillRect(dynamite.x-12,y-2,28,4);
     ctx.strokeStyle='#ccc'; ctx.lineWidth=2;
     ctx.beginPath(); ctx.moveTo(dynamite.x,y-8); ctx.quadraticCurveTo(dynamite.x+10,y-22,dynamite.x+4,y-26); ctx.stroke();
-    glowMark(dynamite.x, y-36);
+    glowMark(dynamite.x,y-36);
   }
 }
 function glowMark(x,y){
@@ -777,86 +814,85 @@ function glowMark(x,y){
 }
 
 function drawPlayer(){
-  const x=player.x, y=groundY;
   const f=player.facing;
-  const sw = Math.sin(player.walkPhase)*5;
-  ctx.save(); ctx.translate(x,y);
-  // legs
-  ctx.fillStyle='#bdbdbd';
-  ctx.fillRect(-7, -22, 6, 22+ (player.vx!==0?sw:0));
-  ctx.fillRect( 2, -22, 6, 22- (player.vx!==0?sw:0));
-  // body
-  ctx.fillStyle='#d6d6d6';
-  ctx.fillRect(-9,-46,18,26);
-  // head
+  const air=!player.grounded && !player.onLadder;
+  const climb=player.onLadder;
+  const ph=player.walkPhase;
+  const sw=(player.vx!==0 && !air)?Math.sin(ph)*6:0;     // leg swing (forward/back)
+  ctx.save();
+  ctx.translate(player.x,player.y);
+  ctx.scale(f,1);              // draw facing +x ("forward"); mirror for left
+  ctx.lineCap='round';
+
+  // legs (side-on swing). climbing -> small alternating shuffle
+  const fa = air? 4 : (climb? Math.sin(game.t*8)*4 : sw);
+  const ba = air? -3 : (climb? -Math.sin(game.t*8)*4 : -sw);
+  ctx.strokeStyle='#9a9a9a'; ctx.lineWidth=6;          // back leg
+  ctx.beginPath(); ctx.moveTo(-1,-24); ctx.lineTo(ba, air?-3:0); ctx.stroke();
+  ctx.strokeStyle='#cfcfcf'; ctx.lineWidth=6;          // front leg
+  ctx.beginPath(); ctx.moveTo(1,-24); ctx.lineTo(fa, air?-3:0); ctx.stroke();
+
+  // torso, leaning slightly forward
+  ctx.save(); ctx.translate(0,-34); ctx.rotate(0.05);
+  ctx.fillStyle='#d6d6d6'; ctx.fillRect(-7,-12,15,26); ctx.restore();
+
+  // back arm tucked behind
+  ctx.strokeStyle='#a9a9a9'; ctx.lineWidth=5;
+  ctx.beginPath(); ctx.moveTo(-1,-38); ctx.lineTo(-7,-22); ctx.stroke();
+
+  // head in profile (faces +x): skull, nose, miner's hat with forward brim
+  const hx=3;
   ctx.fillStyle='#e6e6e6';
-  ctx.beginPath(); ctx.arc(0,-54,9,0,7); ctx.fill();
-  // hat (miner)
+  ctx.beginPath(); ctx.arc(hx,-54,9,0,7); ctx.fill();
+  ctx.beginPath();                                       // nose
+  ctx.moveTo(hx+8,-56); ctx.lineTo(hx+13,-53); ctx.lineTo(hx+8,-50.5); ctx.closePath(); ctx.fill();
   ctx.fillStyle='#9a9a9a';
-  ctx.fillRect(-11,-60,22,5); ctx.fillRect(-7,-66,14,7);
-  // arm holding candle
-  const cx = f*15, cyTop=-40;
+  ctx.fillRect(hx-9,-60,19,5);                           // hat band
+  ctx.fillRect(hx-6,-67,13,8);                           // dome
+  ctx.fillRect(hx+8,-61,9,3);                            // forward brim
+
+  // front arm holding the candle out ahead
+  const cx=19, hy=-40;
   ctx.strokeStyle='#cfcfcf'; ctx.lineWidth=5;
-  ctx.beginPath(); ctx.moveTo(f*6,-40); ctx.lineTo(cx,cyTop); ctx.stroke();
-  // candle stick
-  ctx.fillStyle='#bfbfbf'; ctx.fillRect(cx-2,cyTop-12,4,12);
-  // flame
+  ctx.beginPath(); ctx.moveTo(2,-38); ctx.lineTo(cx,hy); ctx.stroke();
+  ctx.fillStyle='#bfbfbf'; ctx.fillRect(cx-2,hy-12,4,12);
+  const fy=hy-12;
   if(candle.lit){
     const fl=candle.intensity;
-    const fy=cyTop-12;
-    ctx.save();
-    ctx.globalCompositeOperation='lighter';
-    for(let i=3;i>=1;i--){
-      ctx.fillStyle='rgba(255,255,255,'+(0.16*fl)+')';
-      ctx.beginPath(); ctx.arc(cx,fy, i*9*fl,0,7); ctx.fill();
-    }
+    ctx.save(); ctx.globalCompositeOperation='lighter';
+    for(let i=3;i>=1;i--){ ctx.fillStyle='rgba(255,255,255,'+(0.16*fl)+')';
+      ctx.beginPath(); ctx.arc(cx,fy,i*9*fl,0,7); ctx.fill(); }
     ctx.restore();
     ctx.fillStyle='#fff';
-    ctx.beginPath();
-    ctx.ellipse(cx, fy, 2.4, 5+Math.sin(game.t*30)*1.4,0,0,7); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(cx,fy,2.4,5+Math.sin(game.t*30)*1.4,0,0,7); ctx.fill();
   } else {
-    // wisp of smoke
     ctx.strokeStyle='rgba(120,120,120,.4)'; ctx.lineWidth=2;
-    ctx.beginPath(); ctx.moveTo(cx,cyTop-12);
-    ctx.quadraticCurveTo(cx+Math.sin(game.t*4)*5,cyTop-30,cx,cyTop-44); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx,fy);
+    ctx.quadraticCurveTo(cx+Math.sin(game.t*4)*5,fy-18,cx,fy-32); ctx.stroke();
   }
   ctx.restore();
 }
 
 function drawCreature(){
-  const c=creature; const x=c.x, y=groundY;
+  const c=creature; ctx.save(); ctx.translate(c.x,c.y);
   const sw=Math.sin(c.anim*8)*10;
-  ctx.save(); ctx.translate(x,y);
-  // grab lunge offset
-  let lunge = c.grab>0 ? (1-c.grab/0.7)*12 : 0;
+  const lunge=c.grab>0?(1-c.grab/0.7)*12:0;
   ctx.translate(c.facing*lunge,0);
-  // long legs
   ctx.strokeStyle='#050505'; ctx.lineWidth=7;
   ctx.beginPath();
   ctx.moveTo(-5,-50); ctx.lineTo(-8,-2+sw*0.3);
-  ctx.moveTo(5,-50); ctx.lineTo(8,-2-sw*0.3);
-  ctx.stroke();
-  // gaunt body
+  ctx.moveTo(5,-50); ctx.lineTo(8,-2-sw*0.3); ctx.stroke();
   ctx.fillStyle='#070707';
-  ctx.beginPath();
-  ctx.moveTo(-12,-50); ctx.lineTo(12,-50);
+  ctx.beginPath(); ctx.moveTo(-12,-50); ctx.lineTo(12,-50);
   ctx.lineTo(8,-118); ctx.lineTo(-8,-118); ctx.closePath(); ctx.fill();
-  // long arms reaching
   ctx.strokeStyle='#070707'; ctx.lineWidth=6;
-  ctx.beginPath();
-  ctx.moveTo(0,-108);
-  ctx.lineTo(c.facing*(22+lunge), -86 + sw*0.4);
-  ctx.lineTo(c.facing*(30+lunge), -64);
-  ctx.stroke();
-  // head
-  ctx.fillStyle='#0a0a0a';
-  ctx.beginPath(); ctx.ellipse(0,-128,11,16,0,0,7); ctx.fill();
-  // pale eyes
-  const eg = 0.7+Math.sin(c.anim*6)*0.3;
+  ctx.beginPath(); ctx.moveTo(0,-108);
+  ctx.lineTo(c.facing*(22+lunge),-86+sw*0.4);
+  ctx.lineTo(c.facing*(30+lunge),-64); ctx.stroke();
+  ctx.fillStyle='#0a0a0a'; ctx.beginPath(); ctx.ellipse(0,-128,11,16,0,0,7); ctx.fill();
+  const eg=0.7+Math.sin(c.anim*6)*0.3;
   ctx.fillStyle='rgba(240,240,240,'+eg+')';
-  ctx.beginPath(); ctx.arc(c.facing*4-3,-132,2.4,0,7);
-  ctx.arc(c.facing*4+3,-132,2.4,0,7); ctx.fill();
-  // faint mouth gash
+  ctx.beginPath(); ctx.arc(c.facing*4-3,-132,2.4,0,7); ctx.arc(c.facing*4+3,-132,2.4,0,7); ctx.fill();
   ctx.strokeStyle='rgba(200,200,200,.5)'; ctx.lineWidth=1.5;
   ctx.beginPath(); ctx.moveTo(-5,-120); ctx.lineTo(5,-118); ctx.stroke();
   ctx.restore();
@@ -866,49 +902,32 @@ function drawCreature(){
 function applyDarkness(){
   lctx.setTransform(DPR,0,0,DPR,0,0);
   lctx.clearRect(0,0,W,H);
-  // darkness level: full when calm, less harsh ambient
-  let darkAlpha = candle.lit ? 0.985 : 0.997;
-  lctx.fillStyle='rgba(0,0,0,'+darkAlpha+')';
-  lctx.fillRect(0,0,W,H);
-
-  const px = player.x - game.camX;
-  const py = groundY - 50;
+  let darkAlpha=candle.lit?0.985:0.997;
+  lctx.fillStyle='rgba(0,0,0,'+darkAlpha+')'; lctx.fillRect(0,0,W,H);
+  const px=player.x-game.camX, py=(player.y-30)-game.camY;
   let radius;
-  if(candle.lit){
-    radius = lerp(150, 360, candle.intensity) * (player.hidden?0.55:1);
-  } else {
-    radius = 70 + candle.relight*40;
-  }
-  radius += Math.sin(game.t*30)*6*candle.intensity; // flicker breathe
-
+  if(candle.lit) radius=lerp(150,360,candle.intensity)*(player.hidden?0.55:1);
+  else radius=72+candle.relight*40;
+  radius+=Math.sin(game.t*30)*6*candle.intensity;
   lctx.globalCompositeOperation='destination-out';
-  const g=lctx.createRadialGradient(px,py,radius*0.12, px,py,radius);
-  g.addColorStop(0,'rgba(0,0,0,1)');
-  g.addColorStop(0.55,'rgba(0,0,0,0.9)');
-  g.addColorStop(1,'rgba(0,0,0,0)');
-  lctx.fillStyle=g;
-  lctx.beginPath(); lctx.arc(px,py,radius,0,7); lctx.fill();
-
-  // a faint secondary cut so item glows/wall opening read a touch
+  const g=lctx.createRadialGradient(px,py,radius*0.12,px,py,radius);
+  g.addColorStop(0,'rgba(0,0,0,1)'); g.addColorStop(0.55,'rgba(0,0,0,0.9)'); g.addColorStop(1,'rgba(0,0,0,0)');
+  lctx.fillStyle=g; lctx.beginPath(); lctx.arc(px,py,radius,0,7); lctx.fill();
   if(wall.blown){
-    const wx = (wall.x+wall.w/2) - game.camX;
-    if(wx>-200 && wx<W+200){
-      const g2=lctx.createRadialGradient(wx,groundY-80,10,wx,groundY-80,260);
+    const wx=(wall.x+wall.w/2)-game.camX, wy=(GROUND-80)-game.camY;
+    if(wx>-260&&wx<W+260){
+      const g2=lctx.createRadialGradient(wx,wy,10,wx,wy,260);
       g2.addColorStop(0,'rgba(0,0,0,0.5)'); g2.addColorStop(1,'rgba(0,0,0,0)');
-      lctx.fillStyle=g2; lctx.beginPath(); lctx.arc(wx,groundY-80,260,0,7); lctx.fill();
+      lctx.fillStyle=g2; lctx.beginPath(); lctx.arc(wx,wy,260,0,7); lctx.fill();
     }
   }
   lctx.globalCompositeOperation='source-over';
   ctx.drawImage(light,0,0,W,H);
-
-  // warm-ish (kept grayscale) glow bloom over the candle
   if(candle.lit){
     ctx.save(); ctx.globalCompositeOperation='lighter';
     const gg=ctx.createRadialGradient(px,py,0,px,py,radius*0.8);
-    gg.addColorStop(0,'rgba(255,255,255,'+(0.06*candle.intensity)+')');
-    gg.addColorStop(1,'rgba(255,255,255,0)');
-    ctx.fillStyle=gg; ctx.fillRect(0,0,W,H);
-    ctx.restore();
+    gg.addColorStop(0,'rgba(255,255,255,'+(0.06*candle.intensity)+')'); gg.addColorStop(1,'rgba(255,255,255,0)');
+    ctx.fillStyle=gg; ctx.fillRect(0,0,W,H); ctx.restore();
   }
 }
 function drawVignette(){
@@ -918,87 +937,82 @@ function drawVignette(){
 }
 let grainCanvas=document.createElement('canvas'), gctx=grainCanvas.getContext('2d');
 function drawGrain(){
-  // cheap animated film grain
   const gw=160, gh=Math.floor(160*H/W);
-  if(grainCanvas.width!==gw){grainCanvas.width=gw;grainCanvas.height=gh;}
+  if(grainCanvas.width!==gw){ grainCanvas.width=gw; grainCanvas.height=gh; }
   const img=gctx.createImageData(gw,gh), d=img.data;
-  const intensity = (game.state==='chase')?40:22;
+  const intensity=(game.state==='chase')?40:22;
   for(let i=0;i<d.length;i+=4){
     const v=128+(Math.random()*2-1)*intensity;
     d[i]=d[i+1]=d[i+2]=v; d[i+3]=14;
   }
   gctx.putImageData(img,0,0);
-  ctx.save(); ctx.globalCompositeOperation='overlay';
-  ctx.imageSmoothingEnabled=false;
-  ctx.drawImage(grainCanvas,0,0,W,H);
-  ctx.restore();
+  ctx.save(); ctx.globalCompositeOperation='overlay'; ctx.imageSmoothingEnabled=false;
+  ctx.drawImage(grainCanvas,0,0,W,H); ctx.restore();
 }
 
 //============================================================ HUD
 function drawHUD(){
-  ctx.save();
-  ctx.font='13px Courier New'; ctx.textBaseline='top';
-  // inventory
-  let ix=16, iy=14;
+  ctx.save(); ctx.font='13px Courier New'; ctx.textBaseline='top';
   ctx.fillStyle='rgba(20,20,20,.6)'; ctx.fillRect(8,8,210,58);
   ctx.fillStyle=inv.spade?'#e6e6e6':'#3a3a3a';
-  ctx.fillText('['+(inv.spade?'✓':' ')+'] SPADE', ix, iy);
+  ctx.fillText('['+(inv.spade?'x':' ')+'] SPADE', 16, 14);
   ctx.fillStyle=inv.dynamite?'#e6e6e6':'#3a3a3a';
-  ctx.fillText('['+(inv.dynamite?'✓':' ')+'] DYNAMITE', ix, iy+20);
+  ctx.fillText('['+(inv.dynamite?'x':' ')+'] DYNAMITE', 16, 34);
 
-  // objective hint
   ctx.fillStyle='#7a7a7a'; ctx.textAlign='left';
-  let obj='Objective: find the spade & dynamite.';
-  if(inv.spade&&!inv.dynamite) obj='Objective: find the DYNAMITE (far end).';
-  if(!inv.spade&&inv.dynamite) obj='Objective: find the SPADE (other end).';
-  if(inv.spade&&inv.dynamite&&!rocks.dug) obj='Objective: dig the collapse (hold E).';
+  let obj='Objective: find the spade & dynamite (up the ladders).';
+  if(inv.spade&&!inv.dynamite) obj='Objective: find the DYNAMITE (far end, up high).';
+  if(!inv.spade&&inv.dynamite) obj='Objective: find the SPADE (other end, up high).';
+  if(inv.spade&&inv.dynamite&&!rocks.dug) obj='Objective: dig the collapse, far left (hold E).';
   if(rocks.dug&&!wall.planted) obj='Objective: plant dynamite at the wall (E).';
   if(wall.planted&&!wall.blown) obj='GET BACK!';
   if(wall.blown) obj='ESCAPE through the opening!';
   ctx.fillText(obj, 16, 74);
 
-  // candle / relight
+  // creature awareness while it lurks
+  if(creature.mode==='idle' && creature.aware>0.04){
+    const a=creature.aware;
+    ctx.textAlign='center'; ctx.fillStyle='rgba(220,220,220,'+(0.3+0.5*a)+')'; ctx.font='12px Courier New';
+    ctx.fillText('· it stirs ·', W/2, 38);
+    const bw=170,bx=W/2-bw/2,by=54;
+    ctx.strokeStyle='#444'; ctx.strokeRect(bx,by,bw,6);
+    ctx.fillStyle='#cfcfcf'; ctx.fillRect(bx,by,bw*a,6);
+  }
+
   if(!candle.lit){
-    ctx.textAlign='center';
-    ctx.fillStyle='#cfcfcf'; ctx.font='16px Courier New';
+    ctx.textAlign='center'; ctx.fillStyle='#cfcfcf'; ctx.font='16px Courier New';
     ctx.fillText('CANDLE OUT — HOLD  R  TO RELIGHT', W/2, H*0.4);
-    // progress bar
     const bw=240,bx=W/2-bw/2,by=H*0.4+26;
     ctx.strokeStyle='#555'; ctx.strokeRect(bx,by,bw,10);
     ctx.fillStyle='#cfcfcf'; ctx.fillRect(bx,by,bw*candle.relight,10);
   }
 
-  // hidden prompt
   if(player.hidden){
     ctx.textAlign='center'; ctx.fillStyle='#9a9a9a'; ctx.font='14px Courier New';
-    ctx.fillText('Hiding…  hold still.  (E to step out)', W/2, H*0.86);
-    if(creature.active){
-      ctx.fillStyle='#cfcfcf';
-      ctx.fillText('You hear it coming.', W/2, H*0.86+20);
+    ctx.fillText('Hiding...  hold still.  (E to step out)', W/2, H*0.86);
+    if(creature.mode==='chase'||creature.mode==='hunt'){
+      ctx.fillStyle='#cfcfcf'; ctx.fillText('You hear it coming.', W/2, H*0.86+20);
     }
   } else {
-    // interact prompt
     let prompt=null;
-    if(!spade.taken && Math.abs(spade.x-player.x)<55) prompt='E — take spade';
-    else if(!dynamite.taken && Math.abs(dynamite.x-player.x)<55) prompt='E — take dynamite';
-    else if(inv.spade&&!rocks.dug && Math.abs(rocks.x+rocks.w-player.x)<70)
-      prompt='Hold E — dig';
-    else if(rocks.dug&&!wall.blown&&!wall.planted && Math.abs(wall.x+wall.w-player.x)<70)
-      prompt= inv.dynamite?'E — plant dynamite':'need dynamite';
-    else { const cup=nearest(cupboards,c=>c.x,56); if(cup) prompt='E — hide in cupboard'; }
+    let onL=false;
+    for(const l of ladders){ if(Math.abs(player.x-l.x)<18 && player.y<=l.bottom+6 && player.y>=l.top-30){ onL=true; break; } }
+    const onGround=Math.abs(player.y-GROUND)<60;
+    if(!spade.taken && Math.abs(spade.x-player.x)<55 && Math.abs(spade.y-player.y)<70) prompt='E — take spade';
+    else if(!dynamite.taken && Math.abs(dynamite.x-player.x)<55 && Math.abs(dynamite.y-player.y)<70) prompt='E — take dynamite';
+    else if(inv.spade&&!rocks.dug && onGround && Math.abs(rocks.x+rocks.w-player.x)<70) prompt='Hold E — dig';
+    else if(rocks.dug&&!wall.blown&&!wall.planted && onGround && Math.abs(wall.x+wall.w-player.x)<70) prompt=inv.dynamite?'E — plant dynamite':'need dynamite';
+    else { const cup=nearCup(56); if(cup) prompt='E — hide in cupboard'; else if(onL) prompt='W / S — climb'; }
     if(prompt){ ctx.textAlign='center'; ctx.fillStyle='#bdbdbd'; ctx.font='15px Courier New';
       ctx.fillText(prompt, W/2, H*0.84); }
   }
 
-  // center message
   if(messageT>0){
-    ctx.textAlign='center';
-    const a=clamp(messageT/2.6,0,1);
+    ctx.textAlign='center'; const a=clamp(messageT/2.6,0,1);
     ctx.fillStyle='rgba(232,232,232,'+a+')'; ctx.font='20px Courier New';
     ctx.fillText(messageTxt, W/2, H*0.2);
   }
 
-  // chase warning border
   if(game.state==='chase'){
     const p=Math.sin(game.t*8)*0.5+0.5;
     ctx.strokeStyle='rgba(220,220,220,'+(0.2+p*0.3)+')';
