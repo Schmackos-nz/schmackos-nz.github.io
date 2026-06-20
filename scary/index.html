@@ -40,10 +40,12 @@
     Climb the ladders, find the <b>SPADE</b> and the <b>DYNAMITE</b> at opposite
     ends of the shaft. Dig through the collapsed rock, blast the wall behind it,
     and crawl out into the night.<br><br>
-    If your candle dies, <i>something</i> comes for you in the black — relight it
-    fast. And when you catch it standing in the dark ahead of you, do not get
-    close. It is already learning where you are. Run. Hide. Don't let it see
-    you go in.</p>
+    Keep the flame alive: the candle's balance drifts toward <b>MOVE</b> when you
+    walk and <b>STILL</b> when you stand — alternate to hold it near centre, or the
+    strength drains and it gutters out. And when it dies, <i>something</i> comes
+    for you in the black. Relight it fast. When you catch it standing in the dark
+    ahead, do not get close — it is already learning where you are. Run. Hide.
+    Don't let it see you go in.</p>
   <div class="keys">
     <b>A / D</b> or <b>← →</b> move &nbsp;·&nbsp; <b>SPACE</b> jump &nbsp;·&nbsp;
     <b>W / S</b> climb ladders &nbsp;·&nbsp; <b>E</b> interact / dig / hide
@@ -58,7 +60,7 @@
   <button id="againBtn">PLAY AGAIN</button>
 </div>
 
-<div class="tag">headphones recommended · v2.0</div>
+<div class="tag">headphones recommended · v2.2</div>
 
 <script>
 "use strict";
@@ -246,11 +248,12 @@ const game = { state:'title', t:0, camX:0, camY:0, grain:0 };
 const player = {
   x:START, y:GROUND, vx:0, vy:0, facing:1,
   speed:2.6, run:3.7, grounded:true, onLadder:false,
-  hidden:false, hideSpot:null, walkPhase:0, stepT:0,
+  hidden:false, hideSpot:null, walkPhase:0, stepT:0, moving:false,
 };
 const candle = {
   lit:true, intensity:1, target:1, flick:0,
   outTimer:rnd(16,26), out:false, relight:0,
+  str:1, bal:0, balVel:0,        // THPS-style balance: keep the flame alive
 };
 const inv = { spade:false, dynamite:false };
 
@@ -296,6 +299,7 @@ const creature = {
   grab:0, aware:0, searchT:0, passDir:1,
 };
 let chaseLevel=0, idleSpawnTimer=rnd(20,38);
+let huntPulse=0, huntPulseTimer=2;     // periodic flash that reveals it in the dark
 let messageT=0, messageTxt='', scareFlash=0;
 
 let bgrocks=[];
@@ -346,6 +350,7 @@ function resetState(){
   player.hideSpot=null; player.walkPhase=0;
   candle.lit=true; candle.intensity=1; candle.target=1; candle.out=false;
   candle.outTimer=rnd(16,26); candle.relight=0; candle.flick=0;
+  candle.str=1; candle.bal=0; candle.balVel=0;
   inv.spade=false; inv.dynamite=false;
   spade.taken=false; dynamite.taken=false;
   rocks.dug=false; rocks.dig=0;
@@ -353,6 +358,7 @@ function resetState(){
   cupboards.forEach(c=>{ c.seen=false; c.checked=false; });
   creature.mode='gone'; creature.aware=0; creature.grab=0;
   chaseLevel=0; idleSpawnTimer=rnd(20,38);
+  huntPulse=0; huntPulseTimer=rnd(1,2);
   messageT=0; scareFlash=0;
   stopPanic(); stopHeart();
 }
@@ -381,13 +387,18 @@ document.getElementById('againBtn').onclick=()=>{
 // the candle dies -> it comes for you in the dark
 function triggerHunt(){
   const c=creature;
-  if(c.mode==='gone'){
-    const dir=Math.random()<0.5?1:-1;
-    c.x=clamp(player.x+dir*rnd(480,760), minX()+60, WORLD-60);
-    c.y=GROUND;
-  }
+  // always at least a full screen away, on a side that fits in the world
+  const screen=Math.max(W,900), d=screen*rnd(1.0,1.3);
+  const rx=player.x+d, lx=player.x-d;
+  const rok=rx<WORLD-40, lok=lx>minX()+40;
+  let pos;
+  if(rok&&lok) pos=Math.random()<0.5?rx:lx;
+  else if(rok) pos=rx; else if(lok) pos=lx;
+  else pos=player.x + (player.x<WORLD/2?d:-d);
+  c.x=clamp(pos, minX()+40, WORLD-40); c.y=GROUND;
   if(c.mode!=='chase') c.mode='hunt';
   c.aware=1; startHeart();
+  huntPulse=0; huntPulseTimer=rnd(0.9,1.6);   // first reveal comes soon
 }
 // it spots you / gets close enough -> full panic chase
 function startChase(){
@@ -480,6 +491,14 @@ function update(dt){
   if(eEdge){ eEdge=false; tryInteract(); }
   updateCandle(dt);
 
+  // periodic flash that briefly reveals the creature while you're in the dark
+  if(!candle.lit && creature.mode==='hunt'){
+    huntPulseTimer-=dt;
+    if(huntPulseTimer<=0){ huntPulse=0.4; huntPulseTimer=rnd(2.2,3.4);
+      tone(rnd(300,460),0.5,'sine',0.05); whisper(); }
+  }
+  if(huntPulse>0) huntPulse=Math.max(0,huntPulse-dt);
+
   if(game.state==='play'){
     if(Math.random()<dt*0.55) drip();
     if(Math.random()<dt*0.10) creak();
@@ -504,12 +523,13 @@ function update(dt){
 }
 
 function updatePlayer(dt){
-  if(player.hidden){ player.vx=0; player.vy=0; return; }
+  if(player.hidden){ player.vx=0; player.vy=0; player.moving=false; return; }
 
   // dig (hold E at the rubble with the spade)
   const onGround=Math.abs(player.y-GROUND)<60;
   if(inv.spade && !rocks.dug && onGround && Math.abs((rocks.x+rocks.w)-player.x)<70 && keys['e']){
     rocks.dig=Math.min(1,rocks.dig+dt*0.4);
+    player.moving=false;
     if(Math.random()<dt*6) footstep();
     if(rocks.dig>=1 && !rocks.dug){ rocks.dug=true; showMsg('You dug through the rubble.');
       tone(140,0.4,'square',0.1); }
@@ -559,22 +579,35 @@ function updatePlayer(dt){
     player.walkPhase+=dt*10; player.stepT-=dt;
     if(player.stepT<=0){ footstep(); player.stepT=0.32; }
   }
+  player.moving=moving;
 }
 
+// THPS-style flame balance: drifts toward MOVE when you move, STILL when you
+// stand. Stay near center to keep strength up; peg an edge and it drains.
+function updateBalance(dt){
+  const target = player.moving ? 1 : -1;
+  candle.balVel += (target - candle.bal)*1.5*dt;   // your action pulls the needle
+  candle.balVel += rnd(-1,1)*1.9*dt;               // gusts you must correct for
+  candle.balVel *= Math.pow(0.5, dt*3.2);          // damping
+  candle.bal += candle.balVel*dt;
+  if(candle.bal> 1){ candle.bal= 1; candle.balVel*=-0.3; }
+  if(candle.bal<-1){ candle.bal=-1; candle.balVel*=-0.3; }
+  if(Math.abs(candle.bal)>0.78){ candle.str-=dt*0.55; }   // in the red -> drains
+  else { candle.str+=dt*0.22; }                            // balanced -> recovers
+  candle.str=clamp(candle.str,0,1);
+}
 function updateCandle(dt){
   candle.flick=lerp(candle.flick, rnd(-1,1), 0.3);
   if(candle.lit){
-    candle.target = 1 + candle.flick*0.06;
+    if(game.state==='play' && !player.hidden) updateBalance(dt);
+    candle.target = (1 + candle.flick*0.06) * lerp(0.4,1,candle.str); // weak = dim
     if(Math.random()<dt*0.6) candle.target*=rnd(0.6,0.85);
     candle.intensity=lerp(candle.intensity, candle.target, 0.25);
-    if(game.state==='play'){
-      candle.outTimer-=dt;
-      if(candle.outTimer<=0){
-        candle.lit=false; candle.out=true; candle.relight=0;
-        whisper(); creak(); tone(70,1.2,'sine',0.18);
-        showMsg('Your candle is OUT — it comes in the dark. Hold R.');
-        triggerHunt();
-      }
+    if(game.state==='play' && !player.hidden && candle.str<=0){
+      candle.lit=false; candle.out=true; candle.relight=0;
+      whisper(); creak(); tone(70,1.2,'sine',0.18);
+      showMsg('Your candle guttered out — it comes! Hold R.');
+      triggerHunt();
     }
   } else {
     candle.intensity=lerp(candle.intensity, 0.07, 0.2);
@@ -583,6 +616,7 @@ function updateCandle(dt){
       if(Math.random()<dt*4) relightWhoosh();
       if(candle.relight>=1){
         candle.lit=true; candle.out=false; candle.relight=0; candle.intensity=0.3;
+        candle.str=0.5; candle.bal=0; candle.balVel=0;
         relightWhoosh(); stopHeart();
         // relighting does NOT always escalate
         if(creature.mode==='hunt'){
@@ -913,6 +947,15 @@ function applyDarkness(){
   const g=lctx.createRadialGradient(px,py,radius*0.12,px,py,radius);
   g.addColorStop(0,'rgba(0,0,0,1)'); g.addColorStop(0.55,'rgba(0,0,0,0.9)'); g.addColorStop(1,'rgba(0,0,0,0)');
   lctx.fillStyle=g; lctx.beginPath(); lctx.arc(px,py,radius,0,7); lctx.fill();
+  // pulse-reveal: a cold flash around the creature when the candle is out
+  if(huntPulse>0 && creature.mode!=='gone'){
+    const a=clamp(huntPulse/0.4,0,1);
+    const cxs=creature.x-game.camX, cys=(creature.y-70)-game.camY, pr=210;
+    const gp=lctx.createRadialGradient(cxs,cys,5,cxs,cys,pr);
+    gp.addColorStop(0,'rgba(0,0,0,'+(0.85*a)+')');
+    gp.addColorStop(1,'rgba(0,0,0,0)');
+    lctx.fillStyle=gp; lctx.beginPath(); lctx.arc(cxs,cys,pr,0,7); lctx.fill();
+  }
   if(wall.blown){
     const wx=(wall.x+wall.w/2)-game.camX, wy=(GROUND-80)-game.camY;
     if(wx>-260&&wx<W+260){
@@ -969,6 +1012,30 @@ function drawHUD(){
   if(wall.blown) obj='ESCAPE through the opening!';
   ctx.fillText(obj, 16, 74);
 
+  // candle balance meter — keep the flame alive by alternating still & moving
+  if(candle.lit && game.state==='play'){
+    const bw=240, bx=W/2-bw/2, by=H-52, danger=Math.abs(candle.bal)>0.78;
+    ctx.fillStyle='rgba(15,15,15,.55)'; ctx.fillRect(bx-12,by-34,bw+24,56);
+    // strength fill
+    ctx.fillStyle='#333'; ctx.fillRect(bx,by,bw,7);
+    ctx.fillStyle = candle.str<0.3?'#9a9a9a':'#cfcfcf'; ctx.fillRect(bx,by,bw*candle.str,7);
+    ctx.textAlign='center'; ctx.fillStyle='#777'; ctx.font='10px Courier New';
+    ctx.fillText('CANDLE STRENGTH', W/2, by+9);
+    // balance track
+    const ty=by-15, toX=v=>bx+(v+1)/2*bw;
+    ctx.strokeStyle='#333'; ctx.lineWidth=1; ctx.strokeRect(bx,ty-7,bw,14);
+    ctx.fillStyle='rgba(200,200,200,.12)';
+    ctx.fillRect(toX(-0.78),ty-7,toX(0.78)-toX(-0.78),14);
+    const nx=toX(candle.bal);
+    ctx.fillStyle=danger?'#fff':'#cfcfcf'; ctx.fillRect(nx-2,ty-10,4,20);
+    ctx.font='9px Courier New'; ctx.fillStyle='#666';
+    ctx.textAlign='left';  ctx.fillText('STILL', bx, ty-15);
+    ctx.textAlign='right'; ctx.fillText('MOVE',  bx+bw, ty-15);
+    if(danger){ ctx.textAlign='center';
+      ctx.fillStyle='rgba(255,255,255,'+(0.4+0.4*Math.sin(game.t*16))+')';
+      ctx.font='11px Courier New'; ctx.fillText('BALANCE!', W/2, ty-26); }
+  }
+
   // creature awareness while it lurks
   if(creature.mode==='idle' && creature.aware>0.04){
     const a=creature.aware;
@@ -985,7 +1052,7 @@ function drawHUD(){
     const bw=240,bx=W/2-bw/2,by=H*0.4+26;
     ctx.strokeStyle='#555'; ctx.strokeRect(bx,by,bw,10);
     ctx.fillStyle='#cfcfcf'; ctx.fillRect(bx,by,bw*candle.relight,10);
-  } 
+  }
 
   if(player.hidden){
     ctx.textAlign='center'; ctx.fillStyle='#9a9a9a'; ctx.font='14px Courier New';
